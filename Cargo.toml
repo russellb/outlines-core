@@ -1,0 +1,7 @@
+[workspace]
+    members = [
+        "outlines-core",
+        "bindings/python",
+    ]
+
+    resolver = "2"

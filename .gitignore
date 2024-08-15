@@ -7,3 +7,4 @@ docs/build
 *.gguf
 .venv
 benchmarks/results
+**/target/
