@@ -219,16 +219,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
-name = "outlines-core"
+name = "outlines-core-rs"
 version = "0.1.0"
-
-[[package]]
-name = "outlines-core-python"
-version = "0.1.0"
-dependencies = [
- "outlines-core",
- "pyo3",
-]
 
 [[package]]
 name = "portable-atomic"
@@ -306,6 +298,13 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "python-bindings"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
 ]
 
 [[package]]
