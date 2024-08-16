@@ -2,8 +2,6 @@ import interegular
 import numba
 import numpy as np
 import pytest
-from transformers import AutoTokenizer
-
 from outlines_core.fsm.regex import (
     _walk_fsm,
     create_fsm_index_end_to_end,
@@ -20,6 +18,7 @@ from outlines_core.fsm.regex import (
 )
 from outlines_core.integrations.utils import adapt_tokenizer
 from outlines_core.models.transformers import TransformerTokenizer
+from transformers import AutoTokenizer
 
 
 def identity(s):
@@ -531,10 +530,9 @@ def test_json_index_performance():
     import json
     from enum import Enum
 
+    import outlines_core
     from line_profiler import LineProfiler  # type: ignore [import]
     from pydantic import BaseModel, constr
-
-    import outlines_core
 
     class Weapon(str, Enum):
         sword = "sword"

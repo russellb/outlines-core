@@ -2,7 +2,6 @@ import importlib
 
 import interegular
 import numba
-
 from outlines_core.fsm import regex
 
 from .common import setup_tokenizer
