@@ -3,6 +3,8 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::thread;
 
+pub const FLAG: bool = true;
+
 pub fn create_fsm_index_end_to_end_rust(
     fsm_transitions: &BTreeMap<(i32, i32), i32>,
     alphabet_symbol_mapping: &BTreeMap<char, i32>,

@@ -4,3 +4,6 @@ graft tests
 include Cargo.toml
 global-exclude */__pycache__/*
 global-exclude *.pyc
+
+recursive-include rust *
+recursive-include outlines-core *

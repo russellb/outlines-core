@@ -9,3 +9,6 @@ docs/build
 benchmarks/results
 **/target/
 **/dist/
+
+bindings/python/build
+bindings/python/src/outlines_core

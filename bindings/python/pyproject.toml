@@ -1,14 +1,17 @@
 [build-system]
-requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2", "setuptools-rust"]
+requires = ["setuptools", "wheel", "setuptools-rust"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "outlines_core"
-authors= [{name = "Outlines Developers"}]
+authors = [
+    { name = "Outlines Developers" },
+    { name = "Huggingface Developers" },
+]
 description = "Structured Text Generation in Rust"
 requires-python = ">=3.8"
-license = {text = "Apache-2.0"}
-keywords=[
+license = { text = "Apache-2.0" }
+keywords = [
     "machine learning",
     "deep learning",
     "language models",
@@ -24,17 +27,17 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-   "interegular",
-   "numpy<2.0.0",
-   "cloudpickle",
-   "diskcache",
-   "pydantic>=2.0",
-   "numba",
-   "referencing",
-   "jsonschema",
-   "tqdm",
-   "datasets",
-   "typing_extensions",
+    "interegular",
+    "numpy<2.0.0",
+    "cloudpickle",
+    "diskcache",
+    "pydantic>=2.0",
+    "numba",
+    "referencing",
+    "jsonschema",
+    "tqdm",
+    "datasets",
+    "typing_extensions",
 ]
 dynamic = ["version"]
 
@@ -61,18 +64,14 @@ documentation = "https://outlines-dev.github.io/outlines-core/"
 repository = "https://github.com/outlines-dev/outlines-core/"
 
 [project.readme]
-file="README.md"
+file = "README.md"
 content-type = "text/markdown"
-
-[tool.setuptools]
-packages = ["outlines_core"]
-package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "outlines" = ["py.typed"]
 
 [tool.setuptools_scm]
-write_to = "src/outlines_core/_version.py"
+write_to = "py_src/outlines_core/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -87,7 +86,7 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-exclude=["examples"]
+exclude = ["examples"]
 enable_incomplete_feature = ["Unpack"]
 
 [[tool.mypy.overrides]]
@@ -109,21 +108,12 @@ module = [
 ignore_missing_imports = true
 
 [tool.coverage.run]
-omit = [
-    "src/outlines_core/_version.py",
-    "tests/*",
-]
+omit = ["py_src/outlines_core/_version.py", "tests/*"]
 branch = true
 
 [tool.coverage.report]
-omit = [
-    "tests/*",
-]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "\\.\\.\\.",
-]
+omit = ["tests/*"]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "\\.\\.\\."]
 show_missing = true
 
 [tool.diff_cover]
@@ -131,4 +121,4 @@ compare_branch = "origin/main"
 diff_range_notation = ".."
 
 [[tool.setuptools-rust.ext-modules]]
-target = "outlines_core._lib"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml, but you can add a prefix to nest it inside of a Python package.
+target = "outlines_core._lib" # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml, but you can add a prefix to nest it inside of a Python package.
