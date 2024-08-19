@@ -1,6 +1,9 @@
-graft python
+graft src 
 graft rust
-graft tests
 include Cargo.toml
+
 global-exclude */__pycache__/*
 global-exclude *.pyc
+
+recursive-include outlines-core-lib *
+recursive-exclude outlines-core/target *

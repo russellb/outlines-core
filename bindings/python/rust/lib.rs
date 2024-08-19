@@ -4,15 +4,25 @@
 // use pyo3::types::{PyAnyMethods, PyDict, PyModule, PyModuleMethods, PySet};
 use pyo3::{pyfunction, pymodule, wrap_pyfunction, Bound, PyResult};
 
-
 #[pymodule]
 mod _lib {
+    use outlines_core::FLAG;
     use pyo3::prelude::*;
 
     /// Formats the sum of two numbers as string.
     #[pyfunction]
     fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
         Ok((a + b).to_string())
+    }
+
+    #[pyfunction]
+    fn show_me_the_flag() -> PyResult<String> {
+        Ok(FLAG.to_string())
+    }
+
+    #[pyfunction]
+    fn anotherone() -> PyResult<String> {
+        Ok("This is another one".to_string())
     }
 }
 

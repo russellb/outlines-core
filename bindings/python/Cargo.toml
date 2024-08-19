@@ -5,8 +5,6 @@ edition = "2021"
 
 [dependencies]
 pyo3 = "0.22.0"
-# outlines-core = { path = "../../outlines-core" }
-
 [profile.release-lto]
 inherits = "release"
 lto = true
@@ -15,3 +13,6 @@ lto = true
 name = "_lib"
 crate-type = ["cdylib"]
 path = "rust/lib.rs"
+
+[dependencies.outlines-core]
+path = "../../outlines-core"
