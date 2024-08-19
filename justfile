@@ -14,4 +14,3 @@ build-python:
     python -m build && \
     rm outlines-core-lib && \
     sed -i '' 's|path = "outlines-core-lib"|path = "../../outlines-core"|' Cargo.toml
-
