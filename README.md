@@ -7,32 +7,25 @@
 
 ## developing
 
-- build only the outlines-core package `cd outlines-core && cargo build`
-- dev build of python bindings `cd bindings/python && maturin develop`. If you have the conda `outlines-dev` environment activated, the outlines-core module is installed within the env automatically
+There's a [justfile](https://github.com/casey/just) for most dev & build tasks
 
-There's also a [justfile](https://github.com/casey/just) for running these easier:
-
-- `just dev-core`
-- `just dev-python`
-
-# Developer Notes
-
-Setup a virtual environment
-
+- build only the outlines-core rust crate `cd outlines-core && cargo build`
+- install an editable pip package with the recepie `just dev-python` which is:
 ```bash
-uv venv
-source .venv/bin/activate
+cd bindings/python && pip install -e .
+```
+- to build the python package, run `just build-python`, which is equivalent to:
+```bash
+cd bindings/python && \
+ln -sf ../../outlines-core outlines-core-lib && \
+sed -i '' 's|path = "../../outlines-core"|path = "outlines-core-lib"|' Cargo.toml && \
+python -m build && \
+rm outlines-core-lib && \
+sed -i '' 's|path = "outlines-core-lib"|path = "../../outlines-core"|' Cargo.toml
 ```
 
-install the python bindings with
+### Developer Notes
 
-```bash
-uv pip install bindings/python
-```
+- Setup a virtual environment before running the build or dev commands
 
-# Testing
-
-```bash
-python -c "import outlines_core._lib;print(dir(outlines_core._lib))"
-python -c "import outlines_core._lib;print(outlines_core._lib.show_me_the_flag())"
-```
+- If you get the `LookupError: setuptools-scm was unable to detect version for...` error, set the env var `SETUPTOOLS_SCM_PRETEND_VERSION=0.1.0-dev` before running the build or dev command.

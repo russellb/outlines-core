@@ -14,5 +14,5 @@ name = "_lib"
 crate-type = ["cdylib"]
 path = "rust/lib.rs"
 
-[dependencies.outlines-core-rs]
+[dependencies.outlines-core]
 path = "../../outlines-core"

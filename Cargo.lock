@@ -133,7 +133,7 @@ dependencies = [
 name = "python-bindings"
 version = "0.1.0"
 dependencies = [
- "outlines-core-rs",
+ "outlines-core",
  "pyo3",
 ]
 

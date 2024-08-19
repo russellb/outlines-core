@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-rust"]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2", "setuptools-rust"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -67,6 +67,10 @@ repository = "https://github.com/outlines-dev/outlines-core/"
 file = "README.md"
 content-type = "text/markdown"
 
+[tool.setuptools]
+packages = ["outlines_core"]
+package-dir = {"" = "src"}
+
 [tool.setuptools.package-data]
 "outlines" = ["py.typed"]
 
@@ -86,7 +90,7 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-exclude = ["examples"]
+exclude=["examples"]
 enable_incomplete_feature = ["Unpack"]
 
 [[tool.mypy.overrides]]

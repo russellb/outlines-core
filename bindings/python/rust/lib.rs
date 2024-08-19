@@ -6,7 +6,7 @@ use pyo3::{pyfunction, pymodule, wrap_pyfunction, Bound, PyResult};
 
 #[pymodule]
 mod _lib {
-    use outlines_core_rs::FLAG;
+    use outlines_core::FLAG;
     use pyo3::prelude::*;
 
     /// Formats the sum of two numbers as string.
