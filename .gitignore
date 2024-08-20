@@ -10,8 +10,12 @@ build/
 benchmarks/results
 target/
 *.so
+.benchmarks
 **/target/
 **/dist/
 
 bindings/python/build
 bindings/python/src/outlines_core
+bindings/python/outlines-core-lib
+test-sdist/
+test-wheel/
