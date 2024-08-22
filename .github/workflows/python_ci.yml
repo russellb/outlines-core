@@ -13,6 +13,9 @@ jobs:
   style:
     name: Check the code style
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/python
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
@@ -58,41 +61,34 @@ jobs:
     defaults:
       run:
         working-directory: bindings/python
-
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - uses: actions/setup-python@v4
         with:
           cache: pip
           python-version: "3.11"
-
       - name: Set up environment
         run: |
           pip install --upgrade "coverage[toml]>=5.1" diff-cover
-
       - uses: actions/download-artifact@v3
         with:
           name: coverage-data
-
       - name: Fetch master for coverage diff
         run: |
           git fetch --no-tags --prune origin main
-
       - name: Combine coverage & fail if it's <100%.
         run: |
           # Combine coverage files (not needed now, but maybe later)
           # python -m coverage combine
 
           # Produce an html report with absolute coverage information
-          cd bindgins/python && python -m coverage html --skip-covered --skip-empty
+          python -m coverage html --skip-covered --skip-empty
 
           # Report relative coverage and write to the workflow's summary
-          cd bindings/python && python -m coverage xml
+          python -m coverage xml
           diff-cover coverage.xml --markdown-report=coverage.md --fail-under=100 || (cat coverage.md >> $GITHUB_STEP_SUMMARY && exit 1)
-
       - name: Upload HTML report if check failed.
         uses: actions/upload-artifact@v3
         with:
@@ -102,6 +98,9 @@ jobs:
 
   linux:
     runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        working-directory: bindings/python
     strategy:
       matrix:
         platform:
@@ -129,11 +128,12 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
+          working-directory: bindings/python
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.platform.target }}
-          path: dist
+          path: bindings/python/dist
       - name: pytest
         if: ${{ startsWith(matrix.platform.target, 'x86_64') }}
         shell: bash
@@ -157,11 +157,15 @@ jobs:
             pip3 install -U pip pytest
           run: |
             set -e
+            cd bindings/python
             pip3 install outlines-core --find-links dist --force-reinstall
             pytest
 
   musllinux:
     runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        working-directory: bindings/python
     strategy:
       matrix:
         platform:
@@ -185,17 +189,18 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: musllinux_1_2
+          working-directory: bindings/python
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-musllinux-${{ matrix.platform.target }}
-          path: dist
+          path: bindings/python/dist
       - name: pytest
         if: ${{ startsWith(matrix.platform.target, 'x86_64') }}
         uses: addnab/docker-run-action@v3
         with:
           image: alpine:latest
-          options: -v ${{ github.workspace }}:/io -w /io
+          options: -v ${{ github.workspace }}:/io -w /io/bindings/python
           run: |
             set -e
             apk add py3-pip py3-virtualenv
@@ -215,6 +220,7 @@ jobs:
             apk add py3-virtualenv
           run: |
             set -e
+            cd bindings/python
             python3 -m virtualenv .venv
             source .venv/bin/activate
             pip install pytest
@@ -223,6 +229,9 @@ jobs:
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        working-directory: bindings/python
     strategy:
       matrix:
         platform:
@@ -242,11 +251,12 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: 'true'
+          working-directory: bindings/python
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-${{ matrix.platform.target }}
-          path: dist
+          path: bindings/python/dist
       - name: pytest
         if: ${{ !startsWith(matrix.platform.target, 'aarch64') }}
         shell: bash
@@ -260,6 +270,9 @@ jobs:
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
+    defaults:
+      run:
+        working-directory: bindings/python
     strategy:
       matrix:
         platform:
@@ -278,11 +291,12 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: 'true'
+          working-directory: bindings/python
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.platform.target }}
-          path: dist
+          path: bindings/python/dist
       - name: pytest
         run: |
           set -e
@@ -294,6 +308,9 @@ jobs:
 
   sdist:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/python
     steps:
       - uses: actions/checkout@v4
       - name: Build sdist
@@ -301,11 +318,12 @@ jobs:
         with:
           command: sdist
           args: --out dist
+          working-directory: bindings/python
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
           name: wheels-sdist
-          path: dist
+          path: bindings/python/dist
 
 #   release:
 #     name: Release
