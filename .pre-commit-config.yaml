@@ -28,7 +28,7 @@ repos:
   rev: v1.2.0
   hooks:
     - id: mypy
-      args: [--allow-redefinition]
+      args: [--config-file=bindings/python/pyproject.toml, --allow-redefinition]
       exclude: ^examples/
       additional_dependencies: [types-tqdm, types-Pillow]
 - repo: local

@@ -101,6 +101,7 @@ module = [
     "setuptools_rust.*",
     # TODO: Add type info for the Rust extension
     "outlines_core.fsm.outlines_core_rs.*",
+    "_outlines_core_rs.*",
 ]
 ignore_missing_imports = true
 

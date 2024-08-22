@@ -8,6 +8,11 @@ codebase.
 
 from typing import Union
 
-from .transformers import Transformers, TransformerTokenizer, mamba, transformers
+from .transformers import (  # noqa: F401
+    Transformers,
+    TransformerTokenizer,
+    mamba,
+    transformers,
+)
 
 LogitsGenerator = Union[Transformers]
