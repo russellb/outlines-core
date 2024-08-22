@@ -14,14 +14,6 @@ from typing import (
     cast,
 )
 
-from interegular.fsm import (
-    FSM,
-    Alphabet,
-    State,
-    TransitionKey,
-    _AnythingElseCls,
-    anything_else,
-)
 from _outlines_core_rs import (  # noqa: F401
     FSMInfo,
     _walk_fsm,
@@ -29,6 +21,14 @@ from _outlines_core_rs import (  # noqa: F401
     get_token_transition_keys,
     get_vocabulary_transition_keys,
     state_scan_tokens,
+)
+from interegular.fsm import (
+    FSM,
+    Alphabet,
+    State,
+    TransitionKey,
+    _AnythingElseCls,
+    anything_else,
 )
 
 if TYPE_CHECKING:

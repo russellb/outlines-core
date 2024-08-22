@@ -5,7 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-  
+
 permissions:
   contents: read
 
@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: "3.10"
     - uses: pre-commit/action@v3.0.0
-  
+
   tests:
     name: Run the tests
     runs-on: ubuntu-latest
@@ -58,47 +58,47 @@ jobs:
     defaults:
       run:
         working-directory: bindings/python
-  
+
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-  
+
       - uses: actions/setup-python@v4
         with:
           cache: pip
           python-version: "3.11"
-  
+
       - name: Set up environment
         run: |
           pip install --upgrade "coverage[toml]>=5.1" diff-cover
-  
+
       - uses: actions/download-artifact@v3
         with:
           name: coverage-data
-  
+
       - name: Fetch master for coverage diff
         run: |
           git fetch --no-tags --prune origin main
-  
+
       - name: Combine coverage & fail if it's <100%.
         run: |
           # Combine coverage files (not needed now, but maybe later)
           # python -m coverage combine
-  
+
           # Produce an html report with absolute coverage information
           cd bindgins/python && python -m coverage html --skip-covered --skip-empty
-  
+
           # Report relative coverage and write to the workflow's summary
           cd bindings/python && python -m coverage xml
           diff-cover coverage.xml --markdown-report=coverage.md --fail-under=100 || (cat coverage.md >> $GITHUB_STEP_SUMMARY && exit 1)
-  
+
       - name: Upload HTML report if check failed.
         uses: actions/upload-artifact@v3
         with:
           name: html-report
           path: htmlcov
-        if: ${{ failure() }}    
+        if: ${{ failure() }}
 
   linux:
     runs-on: ${{ matrix.platform.runner }}

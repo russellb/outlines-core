@@ -1,6 +1,9 @@
-
 use ::outlines_core as core_lib;
-use pyo3::{pyclass, pyfunction, pymethods, pymodule, types::{PyAnyMethods, PyDict, PyModule, PyModuleMethods}, wrap_pyfunction, Bound, PyResult, Python};
+use pyo3::{
+    pyclass, pyfunction, pymethods, pymodule,
+    types::{PyAnyMethods, PyDict, PyModule, PyModuleMethods},
+    wrap_pyfunction, Bound, PyResult, Python,
+};
 use std::collections::{HashMap, HashSet};
 
 #[pymodule]
@@ -131,7 +134,7 @@ pub fn create_fsm_index_end_to_end<'py>(
             &vocabulary_transition_keys,
             start_state,
         );
-        
+
         for (token_id, end_state) in token_ids_end_states {
             if let Ok(existing_dict) = states_to_token_subsets.get_item(start_state) {
                 existing_dict.set_item(token_id, end_state).unwrap();
