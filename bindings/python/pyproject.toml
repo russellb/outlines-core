@@ -2,14 +2,132 @@
 requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
-[project]
-name = "outlines_core"
-requires-python = ">=3.8"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-]
-
 [tool.maturin]
 features = ["pyo3/extension-module"]
+
+[project]
+name = "outlines_core"
+authors= [{name = "Outlines Developers"}]
+description = "Structured Text Generation in Rust"
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+keywords=[
+    "machine learning",
+    "deep learning",
+    "language models",
+    "structured generation",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+   "interegular",
+   "numpy<2.0.0",
+   "cloudpickle",
+   "diskcache",
+   "pydantic>=2.0",
+   "referencing",
+   "jsonschema",
+   "tqdm",
+   "datasets",
+   "typing_extensions",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+    "pre-commit",
+    "pytest",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pytest-mock",
+    "coverage[toml]>=5.1",
+    "diff-cover",
+    "accelerate",
+    "beartype<0.16.0",
+    "huggingface_hub",
+    "torch",
+    "transformers",
+    "pillow",
+]
+
+[project.urls]
+homepage = "https://github.com/outlines-dev/outlines-core"
+documentation = "https://outlines-dev.github.io/outlines-core/"
+repository = "https://github.com/outlines-dev/outlines-core/"
+
+[project.readme]
+file="README.md"
+content-type = "text/markdown"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
+    "ignore::FutureWarning:transformers.*",
+    "ignore::FutureWarning:huggingface_hub.*",
+    "ignore::UserWarning",
+]
+addopts = [
+    "--import-mode=importlib"
+]
+
+[tool.mypy]
+exclude=["examples"]
+enable_incomplete_feature = ["Unpack"]
+
+[[tool.mypy.overrides]]
+module = [
+    "jsonschema.*",
+    "numpy.*",
+    "cloudpickle.*",
+    "diskcache.*",
+    "pydantic.*",
+    "pytest",
+    "referencing.*",
+    "torch.*",
+    "transformers.*",
+    "huggingface_hub",
+    "interegular.*",
+    "datasets.*",
+    "setuptools.*",
+    "setuptools_rust.*",
+    # TODO: Add type info for the Rust extension
+    "outlines_core.fsm.outlines_core_rs.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = [
+    "python/outlines_core/_version.py",
+    "tests/*",
+]
+branch = true
+
+[tool.coverage.report]
+omit = [
+    "tests/*",
+]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
+show_missing = true
+
+[tool.coverage.paths]
+source = [
+    "outlines_core",
+    "**/site-packages/outlines_core",
+]
+
+[tool.diff_cover]
+compare_branch = "origin/main"
+diff_range_notation = ".."
