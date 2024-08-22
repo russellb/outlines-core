@@ -53,8 +53,8 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: coverage-data
-        path: ${{ github.workspace }}.coverage*
-        if-no-files-found: ignore
+        path: .coverage
+        if-no-files-found: warn
 
   coverage:
     name: Combine & check coverage.
