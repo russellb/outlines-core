@@ -42,8 +42,7 @@ jobs:
       run: |
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install outlines-core --find-links dist --force-reinstall
-        pip install pytest pytest-cov
+        pip install outlines-core[test] --find-links dist --force-reinstall
     - name: Run tests
       run: |
         source .venv/bin/activate
@@ -142,8 +141,7 @@ jobs:
           set -e
           python3 -m venv .venv
           source .venv/bin/activate
-          pip install outlines-core --find-links dist --force-reinstall
-          pip install pytest
+          pip install outlines-core[test] --find-links dist --force-reinstall
           pytest
       - name: pytest
         if: ${{ !startsWith(matrix.platform.target, 'x86') && matrix.platform.target != 'ppc64' }}
@@ -159,7 +157,7 @@ jobs:
           run: |
             set -e
             cd bindings/python
-            pip3 install outlines-core --find-links dist --force-reinstall
+            pip3 install outlines-core[test] --find-links dist --force-reinstall
             pytest
 
 #   musllinux:
