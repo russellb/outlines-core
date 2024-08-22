@@ -53,8 +53,8 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: coverage-data
-        path: .coverage*
-        if-no-files-found: ignore
+        path: .coverage
+        if-no-files-found: error
 
   coverage:
     name: Combine & check coverage.
