@@ -46,7 +46,7 @@ jobs:
     - name: Run tests
       run: |
         source .venv/bin/activate
-        pytest --cov=src/outlines_core
+        pytest --cov=outlines_core
     - name: Upload coverage data
       uses: actions/upload-artifact@v3
       with:
