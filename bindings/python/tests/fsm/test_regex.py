@@ -1,20 +1,17 @@
 import interegular
-import numba
 import numpy as np
 import pytest
 from outlines_core.fsm.regex import (
+    BetterAlphabet,
+    BetterFSM,
     _walk_fsm,
     create_fsm_index_end_to_end,
     create_fsm_index_tokenizer,
-    fsm_union,
-    get_sub_fsms_from_seq,
     get_token_transition_keys,
     get_vocabulary_transition_keys,
-    make_byte_level_better_fsm,
     make_byte_level_fsm,
     make_deterministic_fsm,
     reduced_vocabulary,
-    walk_fsm,
 )
 from outlines_core.integrations.utils import adapt_tokenizer
 from outlines_core.models.transformers import TransformerTokenizer
@@ -41,21 +38,7 @@ def token_str_to_trans_key(fsm, input_string):
     )
 
 
-def walk_fsm_from_token_str(
-    fsm,
-    input_string: str,
-    start_state: int,
-    full_match: bool = True,
-):
-    return walk_fsm(
-        fsm,
-        token_str_to_trans_key(fsm, input_string),
-        start_state,
-        full_match,
-    )
-
-
-def walk_fsm_from_token_str_numba(
+def walk_fsm_from_token_str_rust(
     fsm,
     input_string: str,
     start_state: int,
@@ -71,63 +54,82 @@ def walk_fsm_from_token_str_numba(
     )
 
 
-@pytest.mark.parametrize(
-    "function",
-    [
-        walk_fsm_from_token_str,
-        walk_fsm_from_token_str_numba,
-    ],
-)
-def test_walk_fsm(function):
+def make_byte_level_better_fsm(fsm: BetterFSM, keep_utf8=False) -> BetterFSM:
+    new_fsm = make_byte_level_fsm(fsm, keep_utf8)
+    return BetterFSM(
+        alphabet=BetterAlphabet(new_fsm.alphabet._symbol_mapping),
+        states=new_fsm.states,
+        initial=new_fsm.initial,
+        finals=new_fsm.finals,
+        map=new_fsm.map,
+    )
+
+
+def test_walk_fsm():
     regex_pattern = interegular.parse_pattern("0|[1-9][2-9]*")
     regex_fsm, _ = make_deterministic_fsm(regex_pattern.to_fsm().reduce())
 
-    res = tuple(function(regex_fsm, "0", regex_fsm.initial, full_match=True))
+    res = tuple(
+        walk_fsm_from_token_str_rust(regex_fsm, "0", regex_fsm.initial, full_match=True)
+    )
     assert res == (1,)
 
-    res = tuple(function(regex_fsm, "00", regex_fsm.initial, full_match=False))
+    res = tuple(
+        walk_fsm_from_token_str_rust(
+            regex_fsm, "00", regex_fsm.initial, full_match=False
+        )
+    )
     assert res == (1,)
 
-    res = tuple(function(regex_fsm, "!", regex_fsm.initial, full_match=True))
+    res = tuple(
+        walk_fsm_from_token_str_rust(regex_fsm, "!", regex_fsm.initial, full_match=True)
+    )
     assert res == tuple()
 
-    res = tuple(function(regex_fsm, "00", regex_fsm.initial, full_match=True))
+    res = tuple(
+        walk_fsm_from_token_str_rust(
+            regex_fsm, "00", regex_fsm.initial, full_match=True
+        )
+    )
     assert res == tuple()
 
     # This should fail, because state `1` reads nothing
-    res = tuple(function(regex_fsm, "0", 1, full_match=True))
+    res = tuple(walk_fsm_from_token_str_rust(regex_fsm, "0", 1, full_match=True))
     assert res == tuple()
 
     regex_pattern = interegular.parse_pattern("0|[1-9][2-9]+")
     regex_fsm, _ = make_deterministic_fsm(regex_pattern.to_fsm().reduce())
 
-    res = tuple(function(regex_fsm, "1", regex_fsm.initial, full_match=True))
+    res = tuple(
+        walk_fsm_from_token_str_rust(regex_fsm, "1", regex_fsm.initial, full_match=True)
+    )
     assert res == tuple()
 
-    res = tuple(function(regex_fsm, "1", regex_fsm.initial, full_match=False))
+    res = tuple(
+        walk_fsm_from_token_str_rust(
+            regex_fsm, "1", regex_fsm.initial, full_match=False
+        )
+    )
     assert res == (2,)
 
-    res = tuple(function(regex_fsm, "12", regex_fsm.initial, full_match=True))
+    res = tuple(
+        walk_fsm_from_token_str_rust(
+            regex_fsm, "12", regex_fsm.initial, full_match=True
+        )
+    )
     assert res == (2, 3)
 
     pattern = interegular.parse_pattern(r"(?:[^\W\d]\w*|[\t \x0c]+)")
     fsm, _ = make_deterministic_fsm(pattern.to_fsm().reduce())
 
-    res = tuple(function(fsm, "x ", fsm.initial, full_match=False))
+    res = tuple(walk_fsm_from_token_str_rust(fsm, "x ", fsm.initial, full_match=False))
     assert res == (2,)
 
     start_state = list(fsm.finals)[0]
-    res = tuple(function(fsm, "!", start_state, full_match=False))
+    res = tuple(walk_fsm_from_token_str_rust(fsm, "!", start_state, full_match=False))
     assert res == tuple()
 
 
-@pytest.mark.parametrize(
-    "function",
-    [
-        walk_fsm_from_token_str,
-        walk_fsm_from_token_str_numba,
-    ],
-)
 @pytest.mark.parametrize(
     "transform",
     [
@@ -135,20 +137,20 @@ def test_walk_fsm(function):
         to_bytes,
     ],
 )
-def test_walk_fsm_multi_bytes(function, transform):
+def test_walk_fsm_multi_bytes(transform):
     regex_pattern = interegular.parse_pattern("😂|[😇-😍][😈-😍]*")
     str_regex_fsm, _ = make_deterministic_fsm(regex_pattern.to_fsm().reduce())
     regex_fsm = make_byte_level_better_fsm(str_regex_fsm, keep_utf8=True)
 
     res = tuple(
-        function(
+        walk_fsm_from_token_str_rust(
             regex_fsm, merge_symbols(transform("😂")), regex_fsm.initial, full_match=True
         )
     )
     assert res[-1:] == (1,)
 
     res = tuple(
-        function(
+        walk_fsm_from_token_str_rust(
             regex_fsm,
             merge_symbols(transform("😂😂")),
             regex_fsm.initial,
@@ -158,14 +160,14 @@ def test_walk_fsm_multi_bytes(function, transform):
     assert res[-1:] == (1,)
 
     res = tuple(
-        function(
+        walk_fsm_from_token_str_rust(
             regex_fsm, merge_symbols(transform("!")), regex_fsm.initial, full_match=True
         )
     )
     assert res == tuple()
 
     res = tuple(
-        function(
+        walk_fsm_from_token_str_rust(
             regex_fsm,
             merge_symbols(transform("😂😂")),
             regex_fsm.initial,
@@ -175,161 +177,6 @@ def test_walk_fsm_multi_bytes(function, transform):
     assert res == tuple()
 
 
-def test_get_sub_fsms_from_seq():
-    name_pattern = interegular.parse_pattern(r"[^\W\d]\w*")
-    name_fsm, _ = make_deterministic_fsm(name_pattern.to_fsm().reduce())
-
-    def_pattern = interegular.parse_pattern("def")
-    def_fsm, _ = make_deterministic_fsm(def_pattern.to_fsm().reduce())
-
-    match_pattern = interegular.parse_pattern("match")
-    match_fsm, _ = make_deterministic_fsm(match_pattern.to_fsm().reduce())
-
-    peq_pattern = interegular.parse_pattern(r"\+=")
-    peq_fsm, _ = make_deterministic_fsm(peq_pattern.to_fsm().reduce())
-
-    plus_pattern = interegular.parse_pattern(r"\+")
-    plus_fsm, _ = make_deterministic_fsm(plus_pattern.to_fsm().reduce())
-
-    fsms = [def_fsm, match_fsm, name_fsm, peq_fsm, plus_fsm]
-
-    fsm, fsms_to_trans_finals = fsm_union(fsms)
-
-    assert fsms_to_trans_finals == {
-        0: ({(0, 3), (3, 9), (9, 10)}, {10}, {0: {0}, 1: {3}, 2: {9}, 3: {10}}),
-        1: (
-            {(0, 4), (4, 5), (5, 6), (6, 7), (7, 8)},
-            {8},
-            {0: {0}, 1: {4}, 2: {5}, 3: {6}, 4: {7}, 5: {8}},
-        ),
-        2: (
-            {
-                (0, 2),
-                (0, 3),
-                (0, 4),
-                (2, 2),
-                (3, 2),
-                (3, 9),
-                (4, 2),
-                (4, 5),
-                (5, 2),
-                (5, 6),
-                (6, 2),
-                (6, 7),
-                (7, 2),
-                (7, 8),
-                (8, 2),
-                (9, 2),
-                (9, 10),
-                (10, 2),
-            },
-            {2, 3, 4, 5, 6, 7, 8, 9, 10},
-            {0: {0}, 1: {2, 3, 4, 5, 6, 7, 8, 9, 10}},
-        ),
-        3: ({(0, 1), (1, 11)}, {11}, {0: {0}, 1: {1}, 2: {11}}),
-        4: ({(0, 1)}, {1}, {0: {0}, 1: {1}}),
-    }
-
-    assert not fsm.accepts("1a")
-    assert fsm.accepts("a1")
-    assert fsm.accepts("def")
-    assert fsm.accepts("match")
-    assert fsm.accepts("+=")
-    assert fsm.accepts("+")
-
-    state_seq = walk_fsm_from_token_str(fsm, "def", fsm.initial)
-    state_seq.insert(0, fsm.fsm_info.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(0, False, True), (2, True, True)]
-
-    # Make sure the old-to-new state map is correct
-    def_state_seq = walk_fsm_from_token_str(def_fsm, "def", fsm.initial)
-    def_state_seq.insert(0, fsm.fsm_info.initial)
-
-    def_old_to_new_states = fsms_to_trans_finals[0][2]
-    assert all(
-        new_state in def_old_to_new_states[old_state]
-        for old_state, new_state in zip(def_state_seq, state_seq)
-    )
-
-    state_seq = walk_fsm_from_token_str(fsm, "ef", fsm.initial)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(2, True, True)]
-
-    name_state_seq = walk_fsm_from_token_str(name_fsm, "ef", fsm.initial)
-    name_state_seq.insert(0, fsm.initial)
-
-    name_old_to_new_states = fsms_to_trans_finals[2][2]
-    assert all(
-        new_state in name_old_to_new_states[old_state]
-        for old_state, new_state in zip(name_state_seq, state_seq)
-    )
-
-    state_seq = walk_fsm_from_token_str(fsm, "match", fsm.initial)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(1, False, True), (2, True, True)]
-
-    match_state_seq = walk_fsm_from_token_str(match_fsm, "match", fsm.initial)
-    match_state_seq.insert(0, fsm.initial)
-
-    match_old_to_new_states = fsms_to_trans_finals[1][2]
-    assert all(
-        new_state in match_old_to_new_states[old_state]
-        for old_state, new_state in zip(match_state_seq, state_seq)
-    )
-
-    state_seq = walk_fsm_from_token_str(fsm, "defa", fsm.initial)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(2, True, True)]
-
-    state_seq = walk_fsm_from_token_str(fsm, "de", fsm.initial)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(0, True, False), (2, True, True)]
-
-    state_seq = walk_fsm_from_token_str(fsm, "+", fsm.initial, False)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(3, True, False), (4, False, True)]
-
-    state_seq = walk_fsm_from_token_str(fsm, "+=", fsm.initial)
-    state_seq.insert(0, fsm.initial)
-
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(3, False, True)]
-
-    # Test some overlapping patterns
-    join_fsms = [
-        interegular.parse_pattern(r"JOIN").to_fsm().reduce(),
-        interegular.parse_pattern(r"JOIN LEFT").to_fsm().reduce(),
-    ]
-    fsm, fsms_to_trans_finals = fsm_union(join_fsms)
-
-    # Matching "OI"
-    state_seq = [1, 2, 3]
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(0, True, False), (1, True, False)]
-
-    # Matching "N"
-    state_seq = [3, 4]
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(0, False, True), (1, True, False)]
-
-    # Matching " "
-    state_seq = [4, 5]
-    res = list(get_sub_fsms_from_seq(state_seq, fsms_to_trans_finals))
-    assert res == [(1, True, False)]
-
-
 def test_create_fsm_index_end_to_end():
     regex_str = "0|[1-9][0-9]*"
 
@@ -337,29 +184,26 @@ def test_create_fsm_index_end_to_end():
     regex_fsm, _ = make_deterministic_fsm(regex_pattern.to_fsm().reduce())
 
     vocabulary = {
-        "blah": numba.typed.List([0]),
-        "1a": numba.typed.List([1]),
-        "2": numba.typed.List([2]),
-        "0": numba.typed.List([3]),
-        "<EOS>": numba.typed.List([4]),
+        "blah": [0],
+        "1a": [1],
+        "2": [2],
+        "0": [3],
+        "<EOS>": [4],
     }
 
-    vocabulary_nb = numba.typed.List.empty_list(
-        numba.types.Tuple(
-            (
-                numba.types.unicode_type,
-                numba.int64[:],
-            )
-        )
-    )
+    vocabulary_nb = []
     for token_tuple, token_ids in vocabulary.items():
         token = merge_symbols(token_tuple)
         token_ids_np = np.fromiter(token_ids, dtype=np.dtype("int64"))
         vocabulary_nb.append((token, token_ids_np))
 
-    res = create_fsm_index_end_to_end(regex_fsm.fsm_info, vocabulary_nb)
+    res = create_fsm_index_end_to_end(
+        regex_fsm.fsm_info,
+        vocabulary_nb,
+        frozenset(),
+    )
 
-    assert res == {0: {(2, 2), (3, 1)}, 2: {(2, 2), (3, 2)}}
+    assert res == {0: {2: 2, 3: 1}, 2: {2: 2, 3: 2}}
 
 
 def test_create_fsm_index_end_to_end_multi_byte():
@@ -370,35 +214,30 @@ def test_create_fsm_index_end_to_end_multi_byte():
     byte_fsm = make_byte_level_better_fsm(regex_fsm, keep_utf8=True)
 
     vocabulary = {
-        "blah": numba.typed.List([0]),
-        "😈a": numba.typed.List([1]),
-        "😇": numba.typed.List([2]),
-        "😍": numba.typed.List([3]),
-        merge_symbols(("F0", "9F", "98", "8D")): numba.typed.List([4]),  # '😍'
-        " 😍": numba.typed.List([5]),
-        merge_symbols((" ", "F0", "9F", "98", "8D")): numba.typed.List([6]),  # ' 😍'
-        merge_symbols((" ", "F0", "9F", "98")): numba.typed.List(
-            [7]
-        ),  # ' 😍' incomplete
-        "<EOS>": numba.typed.List([8]),
+        "blah": [0],
+        "😈a": [1],
+        "😇": [2],
+        "😍": [3],
+        merge_symbols(("F0", "9F", "98", "8D")): [4],  # '😍'
+        " 😍": [5],
+        merge_symbols((" ", "F0", "9F", "98", "8D")): [6],  # ' 😍'
+        merge_symbols((" ", "F0", "9F", "98")): [7],  # ' 😍' incomplete
+        "<EOS>": [8],
     }
 
-    vocabulary_nb = numba.typed.List.empty_list(
-        numba.types.Tuple(
-            (
-                numba.types.unicode_type,
-                numba.int64[:],
-            )
-        )
-    )
+    vocabulary_nb = []
     for token_tuple, token_ids in vocabulary.items():
         token_tuple_np = merge_symbols(token_tuple)
         token_ids_np = np.fromiter(token_ids, dtype=np.dtype("int64"))
         vocabulary_nb.append((token_tuple_np, token_ids_np))
 
-    res = create_fsm_index_end_to_end(byte_fsm.fsm_info, vocabulary_nb)
+    res = create_fsm_index_end_to_end(
+        byte_fsm.fsm_info,
+        vocabulary_nb,
+        frozenset(),
+    )
 
-    assert res == {0: {(5, 3), (6, 3), (7, 7), (2, 2)}, 3: {(2, 3), (3, 3), (4, 3)}}
+    assert res == {0: {5: 3, 6: 3, 7: 7, 2: 2}, 3: {2: 3, 3: 3, 4: 3}}
 
 
 @pytest.mark.parametrize(
@@ -510,7 +349,6 @@ def test_regex_index_performance():
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer = TransformerTokenizer(tokenizer)
 
-    # Pre-compile Numba functions
     res, _ = create_fsm_index_tokenizer(regex_fsm, tokenizer)
     assert len(res) > 1
 
@@ -597,21 +435,19 @@ def test_token_trans_keys_identical():
     token_trans_keys = get_vocabulary_transition_keys(
         regex_fsm.fsm_info.alphabet_symbol_mapping,
         regex_fsm.fsm_info.alphabet_anything_value,
-        vocabulary,
-        numba.typed.List.empty_list(numba.types.unicode_type),
+        list(vocabulary.items()),
+        frozenset(),
     )
 
     token_str_to_tranition_keys = {
         token_str: trans_key_seq
-        for (token_str, _), trans_key_seq in zip(vocabulary, token_trans_keys)
+        for (token_str, _), trans_key_seq in zip(vocabulary.items(), token_trans_keys)
     }
     # `a` and `b` both are workable, but `z` has distinct transition rules
     assert interegular_fsm.accepts("zaz")
     assert interegular_fsm.accepts("zbz")
-    assert (token_str_to_tranition_keys["a"] == token_str_to_tranition_keys["b"]).all()
-    assert not (
-        token_str_to_tranition_keys["a"] == token_str_to_tranition_keys["z"]
-    ).all()
+    assert token_str_to_tranition_keys["a"] == token_str_to_tranition_keys["b"]
+    assert not token_str_to_tranition_keys["a"] == token_str_to_tranition_keys["z"]
 
 
 def test_token_trans_keys_walk_fsm():
@@ -635,13 +471,13 @@ def test_token_trans_keys_walk_fsm():
     token_trans_keys = get_vocabulary_transition_keys(
         regex_fsm.fsm_info.alphabet_symbol_mapping,
         regex_fsm.fsm_info.alphabet_anything_value,
-        vocabulary,
-        numba.typed.List.empty_list(numba.types.unicode_type),
+        list(vocabulary.items()),
+        frozenset(),
     )
 
     token_str_trans_key_seq = {
         token_str: trans_key_seq
-        for (token_str, _), trans_key_seq in zip(vocabulary, token_trans_keys)
+        for (token_str, _), trans_key_seq in zip(vocabulary.items(), token_trans_keys)
     }
 
     # verify initial state valid only for "ab" and "ac" using transition key seq
@@ -653,40 +489,11 @@ def test_token_trans_keys_walk_fsm():
             regex_fsm.fsm_info.initial,
             regex_fsm.fsm_info.finals,
             token_trans_key_seq,
-            regex_fsm.fsm_info.initial,
+            regex_fsm.initial,
             False,
         )
         is_accepted = len(state_seq) >= len(token_trans_key_seq)
         assert should_accept == is_accepted
-
-
-def test_numba_leading_null_byte_UnicodeCharSeq_remains_broken():
-    """Assert numba UnicodeCharSeq w/ leading \x00 is still broken"""
-    # EXPLANATION:
-    # https://github.com/outlines_core-dev/outlines/pull/930#issuecomment-2143535968
-
-    # from https://github.com/numba/numba/issues/9542
-    d = numba.typed.typeddict.Dict.empty(numba.types.UnicodeCharSeq(1), numba.int64)
-    d["一"] = 10  # \xe4\xb8\x80
-    with pytest.raises(KeyError):
-        str(d)
-
-    # most characters are fine, but "\x00" is converted to ""
-    l = np.fromiter(["\x99", "\x00"], dtype=np.dtype("U2"))
-    assert str(l[0]) == "\x99"  # fine
-    assert str(l[1]) == ""  # 1-byte null converted to 0-bytes
-
-
-@pytest.mark.parametrize("input_key", ["一", "\x00"])
-def test_numba_leading_null_byte_unicode_type_sane(input_key):
-    """Assert numba unicode_type w/ leading \x00 is working"""
-    # EXPLANATION:
-    # https://github.com/outlines_core-dev/outlines/pull/930#issuecomment-2143535968
-
-    # from https://github.com/numba/numba/issues/9542
-    d = numba.typed.typeddict.Dict.empty(numba.types.unicode_type, numba.int64)
-    d["一"] = 10  # \xe4\xb8\x80
-    str(d)  # assert successfully interprets
 
 
 @pytest.mark.parametrize(

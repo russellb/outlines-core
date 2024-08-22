@@ -1,18 +1,13 @@
 [package]
-name = "python-bindings"
-version = "0.1.0"
+name = "_outlines_core_rs"
+version = "0.1.0-dev.0"
 edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_outlines_core_rs"
+crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.22.0"
-[profile.release-lto]
-inherits = "release"
-lto = true
-
-[lib]
-name = "_lib"
-crate-type = ["cdylib"]
-path = "rust/lib.rs"
-
-[dependencies.outlines-core]
-path = "../../outlines-core"
+outlines-core = { path = "../../outlines-core" }
