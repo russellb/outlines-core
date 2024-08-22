@@ -47,6 +47,8 @@ jobs:
       run: |
         source .venv/bin/activate
         pytest --cov=outlines_core
+    - name: List directory contents (debug)
+      run: ls -la
     - name: Upload coverage data
       uses: actions/upload-artifact@v3
       with:
