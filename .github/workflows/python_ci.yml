@@ -43,7 +43,7 @@ jobs:
         python3 -m venv .venv
         source .venv/bin/activate
         pip install outlines-core --find-links dist --force-reinstall
-        pip install pytest
+        pip install pytest pytest-cov
     - name: Run tests
       run: |
         source .venv/bin/activate
@@ -127,7 +127,7 @@ jobs:
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
-          sccache: 'true'
+          sccache: 'false'
           manylinux: auto
           working-directory: bindings/python
       - name: Upload wheels
