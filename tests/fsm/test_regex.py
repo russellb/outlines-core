@@ -1,8 +1,8 @@
 import pytest
-from outlines_core.fsm.outlines_core_rs import Vocabulary
 from outlines_core.fsm.regex import (
     BetterAlphabet,
     BetterFSM,
+    Vocabulary,
     _walk_fsm,
     create_fsm_index_end_to_end,
     create_fsm_index_tokenizer,
@@ -144,7 +144,10 @@ def test_walk_fsm_multi_bytes(transform):
 
     res = tuple(
         walk_fsm_from_token_str_rust(
-            regex_fsm, merge_symbols(transform("😂")), regex_fsm.initial, full_match=True
+            regex_fsm,
+            merge_symbols(transform("😂")),
+            regex_fsm.initial,
+            full_match=True,
         )
     )
     assert res[-1:] == (1,)

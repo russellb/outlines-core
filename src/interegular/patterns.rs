@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::vec;
 
 use crate::interegular::fsm::SymbolTrait;
-use crate::interegular::fsm::TransitionKey;
 use crate::interegular::fsm::{Alphabet, Fsm};
 
 const SPECIAL_CHARS_INNER: [&str; 2] = ["\\", "]"];
@@ -151,8 +150,8 @@ impl RegexElement {
                 let symbol = alphabet.get(c);
 
                 let mut m = std::collections::HashMap::new();
-                m.insert(symbol, TransitionKey::Symbol(1_usize));
-                mapping.insert(TransitionKey::Symbol(0_usize), m);
+                m.insert(symbol, 1_usize);
+                mapping.insert(0_usize, m);
 
                 // states based on the symbols
                 let unique_symbols = alphabet
@@ -162,13 +161,11 @@ impl RegexElement {
                     .collect::<HashSet<_>>();
 
                 let states = unique_symbols.iter().copied().collect();
-                let finals = (1..=1).map(std::convert::Into::into).collect();
+                let finals = (1..=1).collect();
 
                 Fsm::new(
-                    alphabet,
-                    states, // {0, 1}
-                    0.into(),
-                    finals, // {1}
+                    alphabet, states, // {0, 1}
+                    0, finals, // {1}
                     mapping,
                 )
             }
@@ -199,10 +196,7 @@ impl RegexElement {
                         .copied()
                         .collect::<HashSet<_>>();
 
-                    let char_as_usize = chars
-                        .iter()
-                        .map(|c| TransitionKey::Symbol(*c as usize))
-                        .collect();
+                    let char_as_usize = chars.iter().map(|c| *c as usize).collect();
                     let diff = alphabet_set
                         .difference(&char_as_usize)
                         .copied()
@@ -210,27 +204,25 @@ impl RegexElement {
 
                     let mut m = std::collections::HashMap::new();
                     for symbol in diff {
-                        m.insert(symbol, TransitionKey::Symbol(1_usize));
+                        m.insert(symbol, 1_usize);
                     }
-                    mapping.insert(TransitionKey::Symbol(0_usize), m);
+                    mapping.insert(0_usize, m);
                 } else {
                     let chars = chars.clone();
                     for symbol in chars {
                         let mut m = std::collections::HashMap::new();
                         let symbol_value = alphabet.get(&symbol);
-                        m.insert(symbol_value, TransitionKey::Symbol(1_usize));
-                        mapping.insert(TransitionKey::Symbol(0_usize), m);
+                        m.insert(symbol_value, 1_usize);
+                        mapping.insert(0_usize, m);
                     }
                 }
 
-                let states = (0..=1).map(std::convert::Into::into).collect();
-                let finals = (1..=1).map(std::convert::Into::into).collect();
+                let states = (0..=1).collect();
+                let finals = (1..=1).collect();
 
                 Fsm::new(
-                    alphabet,
-                    states, // {0, 1}
-                    0.into(),
-                    finals, // {1}
+                    alphabet, states, // {0, 1}
+                    0, finals, // {1}
                     mapping,
                 )
             }
@@ -243,7 +235,7 @@ impl RegexElement {
                         // TODO: fix if alphabet is None
                         alphabet.clone(),
                         HashSet::new(),
-                        0.into(),
+                        0,
                         HashSet::new(),
                         std::collections::HashMap::new(),
                     ),
@@ -261,7 +253,7 @@ impl RegexElement {
                             Fsm::new(
                                 alphabet.clone(),
                                 HashSet::new(),
-                                0.into(),
+                                0,
                                 HashSet::new(),
                                 std::collections::HashMap::new(),
                             ),
@@ -1111,30 +1103,18 @@ mod tests {
         let result = parse_pattern(pattern).unwrap();
 
         let alphabet = Alphabet {
-            symbol_mapping: HashMap::from([
-                ('a', TransitionKey::Symbol(1)),
-                ('\0', TransitionKey::Symbol(0)),
-            ]),
-            by_transition: HashMap::from([
-                (TransitionKey::Symbol(0), vec!['\0']),
-                (TransitionKey::Symbol(1), vec!['a']),
-            ]),
+            symbol_mapping: HashMap::from([('a', 1), ('\0', 0)]),
+            by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a'])]),
         };
 
         let result = result.to_fsm(Some(alphabet.clone()), None, None);
 
         let expected = Fsm {
             alphabet,
-            states: HashSet::from([TransitionKey::Symbol(0), TransitionKey::Symbol(1)]),
-            initial: TransitionKey::Symbol(0),
-            finals: HashSet::from([TransitionKey::Symbol(1)]),
-            map: HashMap::from([
-                (
-                    TransitionKey::Symbol(0),
-                    HashMap::from([(TransitionKey::Symbol(1), TransitionKey::Symbol(1))]),
-                ),
-                (TransitionKey::Symbol(1), HashMap::new()),
-            ]),
+            states: HashSet::from([0, 1]),
+            initial: 0,
+            finals: HashSet::from([1]),
+            map: HashMap::from([(0, HashMap::from([(1, 1)])), (1, HashMap::new())]),
         };
 
         assert_eq!(
@@ -1191,39 +1171,21 @@ mod tests {
         let result = parse_pattern(pattern).unwrap();
 
         let alphabet = Alphabet {
-            symbol_mapping: HashMap::from([
-                ('\0', TransitionKey::Symbol(0)),
-                ('a', TransitionKey::Symbol(1)),
-                ('b', TransitionKey::Symbol(2)),
-            ]),
-            by_transition: HashMap::from([
-                (TransitionKey::Symbol(0), vec!['\0']),
-                (TransitionKey::Symbol(1), vec!['a']),
-                (TransitionKey::Symbol(2), vec!['b']),
-            ]),
+            symbol_mapping: HashMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+            by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
         };
 
         let result = result.to_fsm(Some(alphabet.clone()), None, None);
 
         let expected = Fsm {
             alphabet,
-            states: HashSet::from([
-                TransitionKey::Symbol(0),
-                TransitionKey::Symbol(1),
-                TransitionKey::Symbol(2),
-            ]),
-            initial: TransitionKey::Symbol(0),
-            finals: HashSet::from([TransitionKey::Symbol(2)]),
+            states: HashSet::from([0, 1, 2]),
+            initial: 0,
+            finals: HashSet::from([2]),
             map: HashMap::from([
-                (
-                    TransitionKey::Symbol(0),
-                    HashMap::from([(TransitionKey::Symbol(1), TransitionKey::Symbol(1))]),
-                ),
-                (
-                    TransitionKey::Symbol(1),
-                    HashMap::from([(TransitionKey::Symbol(2), TransitionKey::Symbol(2))]),
-                ),
-                (TransitionKey::Symbol(2), HashMap::new()),
+                (0, HashMap::from([(1, 1)])),
+                (1, HashMap::from([(2, 2)])),
+                (2, HashMap::new()),
             ]),
         };
 

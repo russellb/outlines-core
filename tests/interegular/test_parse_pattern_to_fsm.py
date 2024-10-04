@@ -1,3 +1,5 @@
+import pytest
+
 # TODO: THIS IS A WORK IN PROGRESS AND WILL BE COMPLETELY REFACTORED BEFORE MERGING
 from interegular.fsm import anything_else
 from outlines_core.fsm.regex import parse_pattern_to_fsm
@@ -73,6 +75,23 @@ def sort_map(map):
     return dict(sorted(map.items()))
 
 
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "a",
+        "ab",
+        "a|b",
+        # "[ab]",
+        # "aaaaa",
+        # "davidholtz",
+        # "a*b+c?",
+        # "(ab|cd)*",
+        # "[a-z0-9]+",
+        # "foo(bar|baz)*qux",
+        # "(a|b|c){1,3}",
+        # "[^aeiou]{2,4}",
+    ],
+)
 def test_parse_pattern_to_fsm(pattern):
     fsm = parse_pattern_to_fsm(pattern)
     fsm = make_fsm_comparable(fsm)
@@ -161,10 +180,10 @@ def test_parse_pattern_to_fsm(pattern):
 # tests copied so they can be run as a standalone script
 if __name__ == "__main__":
     test_cases = [
-        # "a",
-        # "ab",
+        "a",
+        "ab",
         # "a|b",
-        "[ab]",
+        # "[ab]",
         # TODO: long simple patterns (should work)
         # "aaaaa",
         # "davidholtz",

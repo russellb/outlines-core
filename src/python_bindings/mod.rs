@@ -2,6 +2,7 @@ use crate::interegular::fsm::Fsm;
 use crate::interegular::patterns::parse_pattern;
 use crate::interegular::patterns::RegexElement;
 use crate::json_schema;
+use crate::primitives::TransitionKey;
 use crate::regex::get_token_transition_keys;
 use crate::regex::get_vocabulary_transition_keys;
 use crate::regex::state_scan_tokens;
@@ -493,7 +494,6 @@ pub struct InteregularFSMInfo {
 }
 
 use crate::interegular::fsm::Alphabet;
-use crate::interegular::fsm::TransitionKey;
 use crate::interegular::patterns::Flag;
 
 #[pyfunction(name = "parse_pattern_to_fsm")]
@@ -513,12 +513,12 @@ pub fn parse_pattern_to_fsm_internal(pattern: &str) -> PyResult<InteregularFSMIn
     // and ensure that \0 is the anything symbol at 0. However, this is not a good solution
     // and should be handled by an improved alphabet implementation
     let mut my_new_symbol_mapping = HashMap::new();
-    my_new_symbol_mapping.insert('\0', TransitionKey::Symbol(0)); // add \0 as the anything symbol at 0
+    my_new_symbol_mapping.insert('\0', 0 as usize); // add \0 as the anything symbol at 0
 
     let mut counter = 1;
     for (symbol, _) in patterns_alphabet.symbol_mapping.iter() {
         if *symbol != '\0' {
-            my_new_symbol_mapping.insert(*symbol, TransitionKey::Symbol(counter));
+            my_new_symbol_mapping.insert(*symbol, counter as usize);
             counter += 1;
         }
     }
@@ -531,10 +531,17 @@ pub fn parse_pattern_to_fsm_internal(pattern: &str) -> PyResult<InteregularFSMIn
         .map
         .iter()
         .map(|(key, map)| {
-            let u32_key = u32::from(*key);
+            // let u32_key = u32::from(*key);
+            let u32_key = *key as u32;
             let map_as_u32s = map
                 .iter()
-                .map(|(key, value)| (u32::from(*key), u32::from(*value)))
+                .map(|(key, value)| {
+                    (
+                        // u32::from(*key), u32::from(*value)
+                        *key as u32,
+                        *value as u32,
+                    )
+                })
                 .collect();
             (u32_key, map_as_u32s)
         })
@@ -553,9 +560,9 @@ pub fn parse_pattern_to_fsm_internal(pattern: &str) -> PyResult<InteregularFSMIn
         .collect();
 
     Ok(InteregularFSMInfo {
-        initial: fsm_info.initial.into(),
-        finals: fsm_info.finals.iter().map(|f| (*f).into()).collect(),
-        states: fsm_info.states.iter().map(|s| (*s).into()).collect(),
+        initial: fsm_info.initial as u32,
+        finals: fsm_info.finals.iter().map(|f| (*f as u32)).collect(),
+        states: fsm_info.states.iter().map(|s| (*s as u32)).collect(),
         map,
         symbol_mapping: python_symbol_mapping,
         by_transition: python_by_transition,
