@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
    "interegular",
-   "numpy<2.0.0",
+   "numpy",
    "cloudpickle",
    "diskcache",
    "pydantic>=2.0",
