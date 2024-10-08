@@ -1,7 +1,6 @@
 #![allow(dead_code, unused_imports, unused_variables)]
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::vec;
 
@@ -15,7 +14,7 @@ const SPECIAL_CHARS_STANDARD: [&str; 11] = ["+", "?", "*", ".", "$", "^", "\\", 
 pub enum RegexElement {
     Literal(char),
     CharGroup {
-        chars: HashSet<char>,
+        chars: BTreeSet<char>,
         inverted: bool,
     },
     Repeated {
@@ -68,8 +67,8 @@ fn is_alphabetic(c: String) -> bool {
 }
 
 fn _combine_char_groups(groups: &[RegexElement], negate: bool) -> RegexElement {
-    let mut pos = HashSet::new();
-    let mut neg = HashSet::new();
+    let mut pos = BTreeSet::new();
+    let mut neg = BTreeSet::new();
 
     for group in groups {
         match group {
@@ -133,7 +132,7 @@ impl RegexElement {
         &self,
         alphabet: Option<Alphabet<char>>,
         prefix_postfix: Option<(usize, Option<usize>)>,
-        flags: Option<HashSet<Flag>>,
+        flags: Option<BTreeSet<Flag>>,
     ) -> Fsm<char> {
         match self {
             RegexElement::Literal(c) => {
@@ -141,15 +140,16 @@ impl RegexElement {
                     .unwrap_or_else(|| self.get_alphabet(&flags.clone().unwrap_or_default()));
                 let prefix_postfix = prefix_postfix.unwrap_or_else(|| self.get_prefix_postfix());
 
-                let case_insensitive = flags
-                    .clone()
-                    .as_ref()
-                    .map_or(false, |f| f.contains(&Flag::CaseInsensitive));
+                // let case_insensitive = flags
+                //     .clone()
+                //     .as_ref()
+                //     .map_or(false, |f| f.contains(&Flag::CaseInsensitive));
+                let case_insensitive = false;
 
-                let mut mapping = HashMap::<_, HashMap<_, _>>::new();
+                let mut mapping = BTreeMap::<_, BTreeMap<_, _>>::new();
                 let symbol = alphabet.get(c);
 
-                let mut m = std::collections::HashMap::new();
+                let mut m = std::collections::BTreeMap::new();
                 m.insert(symbol, 1_usize);
                 mapping.insert(0_usize, m);
 
@@ -158,7 +158,7 @@ impl RegexElement {
                     .by_transition
                     .keys()
                     .copied()
-                    .collect::<HashSet<_>>();
+                    .collect::<BTreeSet<_>>();
 
                 let states = unique_symbols.iter().copied().collect();
                 let finals = (1..=1).collect();
@@ -179,12 +179,13 @@ impl RegexElement {
                     "Cannot have prefix/postfix on CharGroup-level"
                 );
 
-                let case_insensitive = flags
-                    .clone()
-                    .as_ref()
-                    .map_or(false, |f| f.contains(&Flag::CaseInsensitive));
+                // let case_insensitive = flags
+                //     .clone()
+                //     .as_ref()
+                //     .map_or(false, |f| f.contains(&Flag::CaseInsensitive));
+                let case_insensitive = false;
 
-                let mut mapping = HashMap::<_, HashMap<_, _>>::new();
+                let mut mapping = BTreeMap::<_, BTreeMap<_, _>>::new();
 
                 if *inverted {
                     let chars = chars.clone();
@@ -194,7 +195,7 @@ impl RegexElement {
                         .by_transition
                         .keys()
                         .copied()
-                        .collect::<HashSet<_>>();
+                        .collect::<BTreeSet<_>>();
 
                     let char_as_usize = chars.iter().map(|c| *c as usize).collect();
                     let diff = alphabet_set
@@ -202,7 +203,7 @@ impl RegexElement {
                         .copied()
                         .collect::<Vec<_>>();
 
-                    let mut m = std::collections::HashMap::new();
+                    let mut m = std::collections::BTreeMap::new();
                     for symbol in diff {
                         m.insert(symbol, 1_usize);
                     }
@@ -210,7 +211,7 @@ impl RegexElement {
                 } else {
                     let chars = chars.clone();
                     for symbol in chars {
-                        let mut m = std::collections::HashMap::new();
+                        let mut m = std::collections::BTreeMap::new();
                         let symbol_value = alphabet.get(&symbol);
                         m.insert(symbol_value, 1_usize);
                         mapping.insert(0_usize, m);
@@ -227,17 +228,39 @@ impl RegexElement {
                 )
             }
             RegexElement::Repeated { element, min, max } => {
+                // # REF
+                // def to_fsm(self, alphabet=None, prefix_postfix=None, flags=REFlags(0)) -> FSM:
+                //     if alphabet is None:
+                //         alphabet = self.get_alphabet(flags)
+                //     if prefix_postfix is None:
+                //         prefix_postfix = self.prefix_postfix
+                //     if prefix_postfix != (0, 0):
+                //         raise ValueError("Can not have prefix/postfix on CharGroup-level")
+                //     print("alphabet", alphabet.__dict__)
+                //     unit = self.base.to_fsm(alphabet, (0, 0), flags=flags)
+                //     print("unit", unit.__dict__)
+                //     mandatory = unit * self.min
+                //     print("mandatory", mandatory.__dict__, self.min)
+                //     if self.max is None:
+                //         optional = unit.star()
+                //     else:
+                //         optional = unit.copy()
+                //         optional.__dict__['finals'] |= {optional.initial}
+                //         optional *= (self.max - self.min)
+                //     return mandatory + optional
+
                 let unit = element.to_fsm(alphabet.clone(), None, flags.clone());
                 let alphabet = alphabet
                     .unwrap_or_else(|| self.get_alphabet(&flags.clone().unwrap_or_default()));
-                let mandatory = std::iter::repeat(unit.clone()).take(*min).fold(
+
+                let base_fsm = element.to_fsm(Some(alphabet.clone()), None, flags.clone());
+                let mandatory = std::iter::repeat(base_fsm.clone()).take(*min).fold(
                     Fsm::new(
-                        // TODO: fix if alphabet is None
                         alphabet.clone(),
-                        HashSet::new(),
+                        BTreeSet::from([0]),
                         0,
-                        HashSet::new(),
-                        std::collections::HashMap::new(),
+                        BTreeSet::from([0]),
+                        std::collections::BTreeMap::from([(0, BTreeMap::new())]),
                     ),
                     |acc, f| Fsm::concatenate(&[acc, f]),
                 );
@@ -252,10 +275,10 @@ impl RegexElement {
                         .fold(
                             Fsm::new(
                                 alphabet.clone(),
-                                HashSet::new(),
+                                BTreeSet::new(),
                                 0,
-                                HashSet::new(),
-                                std::collections::HashMap::new(),
+                                BTreeSet::new(),
+                                std::collections::BTreeMap::new(),
                             ),
                             |acc, f| Fsm::concatenate(&[acc, f]),
                         );
@@ -287,10 +310,15 @@ impl RegexElement {
     }
 
     #[must_use]
-    pub fn get_alphabet<T: SymbolTrait>(&self, flags: &HashSet<Flag>) -> Alphabet<T> {
+    pub fn get_alphabet<T: SymbolTrait + std::cmp::Ord>(
+        &self,
+        flags: &BTreeSet<Flag>,
+    ) -> Alphabet<T> {
         match self {
             RegexElement::CharGroup { chars, .. } => {
-                let relevant = if flags.contains(&Flag::CaseInsensitive) {
+                // let case_insensitive = flags.contains(&Flag::CaseInsensitive);
+                let case_insensitive = false;
+                let relevant = if case_insensitive {
                     chars
                         .iter()
                         // .flat_map(|c| vec![c.to_ascii_lowercase(), c.to_ascii_uppercase()])
@@ -299,10 +327,10 @@ impl RegexElement {
                 } else {
                     chars.iter().map(|c| (*c).into()).collect()
                 };
-                // Alphabet::from_groups(&[relevant, HashSet::from([TransitionKey::AnythingElse])])
-                Alphabet::from_groups(&[relevant, HashSet::from(['\0'.into()])])
+                // Alphabet::from_groups(&[relevant, BTreeSet::from([TransitionKey::AnythingElse])])
+                Alphabet::from_groups(&[relevant, BTreeSet::from(['\0'.into()])])
             }
-            RegexElement::Literal(c) => Alphabet::from_groups(&[HashSet::from([(*c).into()])]),
+            RegexElement::Literal(c) => Alphabet::from_groups(&[BTreeSet::from([(*c).into()])]),
             RegexElement::Repeated { element, .. } => element.get_alphabet(flags),
             RegexElement::Alternation(options) => {
                 let mut alphabet = Alphabet::empty();
@@ -650,7 +678,7 @@ impl<'a> ParsePattern<'a> {
             }
         } else if groups.is_empty() {
             Ok(RegexElement::CharGroup {
-                chars: HashSet::new(),
+                chars: BTreeSet::new(),
                 inverted: negate,
             })
         } else {
@@ -815,6 +843,36 @@ pub fn parse_pattern(pattern: &str) -> Result<RegexElement, super::simple_parser
     parser.parse()
 }
 
+pub fn parse_pattern_to_fms(pattern: &str) -> Fsm<char> {
+    let regex_element = parse_pattern(pattern).unwrap();
+
+    let prefix_postfix = None;
+    let flags = None;
+
+    let default_alphabet = Alphabet::<char>::default();
+    let empty_flags: BTreeSet<Flag> = BTreeSet::new();
+    let patterns_alphabet: Alphabet<char> = regex_element.get_alphabet(&empty_flags);
+
+    // TODO: this is a hack to build a alphabet with the same symbols as the patterns
+    // and ensure that \0 is the anything symbol at 0. However, this is not a good solution
+    // and should be handled by an improved alphabet implementation
+    let mut my_new_symbol_mapping = BTreeMap::new();
+    my_new_symbol_mapping.insert('\0', 0 as usize); // add \0 as the anything symbol at 0
+
+    let mut counter = 1;
+    for (symbol, _) in patterns_alphabet.symbol_mapping.iter() {
+        if *symbol != '\0' {
+            my_new_symbol_mapping.insert(*symbol, counter as usize);
+            counter += 1;
+        }
+    }
+
+    let alphabet = Alphabet::new(my_new_symbol_mapping);
+    let fsm_info = regex_element.to_fsm(Some(alphabet.clone()), prefix_postfix, flags);
+
+    fsm_info
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -928,55 +986,55 @@ mod tests {
             Ok(RegexElement::Alternation(vec![
                 RegexElement::Concatenation(vec![
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['.']),
+                        chars: BTreeSet::from(['.']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['*']),
+                        chars: BTreeSet::from(['*']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['+']),
+                        chars: BTreeSet::from(['+']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['?']),
+                        chars: BTreeSet::from(['?']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['|']),
+                        chars: BTreeSet::from(['|']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['(']),
+                        chars: BTreeSet::from(['(']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from([')']),
+                        chars: BTreeSet::from([')']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['[']),
+                        chars: BTreeSet::from(['[']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from([']']),
+                        chars: BTreeSet::from([']']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['{']),
+                        chars: BTreeSet::from(['{']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['}']),
+                        chars: BTreeSet::from(['}']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['^']),
+                        chars: BTreeSet::from(['^']),
                         inverted: false
                     },
                     RegexElement::CharGroup {
-                        chars: HashSet::from(['$']),
+                        chars: BTreeSet::from(['$']),
                         inverted: false
                     }
                 ]),
@@ -1103,18 +1161,18 @@ mod tests {
         let result = parse_pattern(pattern).unwrap();
 
         let alphabet = Alphabet {
-            symbol_mapping: HashMap::from([('a', 1), ('\0', 0)]),
-            by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a'])]),
+            symbol_mapping: BTreeMap::from([('a', 1), ('\0', 0)]),
+            by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a'])]),
         };
 
         let result = result.to_fsm(Some(alphabet.clone()), None, None);
 
         let expected = Fsm {
             alphabet,
-            states: HashSet::from([0, 1]),
+            states: BTreeSet::from([0, 1]),
             initial: 0,
-            finals: HashSet::from([1]),
-            map: HashMap::from([(0, HashMap::from([(1, 1)])), (1, HashMap::new())]),
+            finals: BTreeSet::from([1]),
+            map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
         };
 
         assert_eq!(
@@ -1123,13 +1181,13 @@ mod tests {
                 .symbol_mapping
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>(),
+                .collect::<BTreeSet<_>>(),
             expected
                 .alphabet
                 .symbol_mapping
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>()
+                .collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
@@ -1138,30 +1196,30 @@ mod tests {
                 .by_transition
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>(),
+                .collect::<BTreeSet<_>>(),
             expected
                 .alphabet
                 .by_transition
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>()
+                .collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
-            result.states.iter().copied().collect::<HashSet<_>>(),
-            expected.states.iter().copied().collect::<HashSet<_>>()
+            result.states.iter().copied().collect::<BTreeSet<_>>(),
+            expected.states.iter().copied().collect::<BTreeSet<_>>()
         );
 
         assert_eq!(result.initial, expected.initial);
 
         assert_eq!(
-            result.finals.iter().copied().collect::<HashSet<_>>(),
-            expected.finals.iter().copied().collect::<HashSet<_>>()
+            result.finals.iter().copied().collect::<BTreeSet<_>>(),
+            expected.finals.iter().copied().collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
-            result.map.keys().copied().collect::<HashSet<_>>(),
-            expected.map.keys().copied().collect::<HashSet<_>>()
+            result.map.keys().copied().collect::<BTreeSet<_>>(),
+            expected.map.keys().copied().collect::<BTreeSet<_>>()
         );
     }
 
@@ -1171,21 +1229,21 @@ mod tests {
         let result = parse_pattern(pattern).unwrap();
 
         let alphabet = Alphabet {
-            symbol_mapping: HashMap::from([('\0', 0), ('a', 1), ('b', 2)]),
-            by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
+            symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+            by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
         };
 
         let result = result.to_fsm(Some(alphabet.clone()), None, None);
 
         let expected = Fsm {
             alphabet,
-            states: HashSet::from([0, 1, 2]),
+            states: BTreeSet::from([0, 1, 2]),
             initial: 0,
-            finals: HashSet::from([2]),
-            map: HashMap::from([
-                (0, HashMap::from([(1, 1)])),
-                (1, HashMap::from([(2, 2)])),
-                (2, HashMap::new()),
+            finals: BTreeSet::from([2]),
+            map: BTreeMap::from([
+                (0, BTreeMap::from([(1, 1)])),
+                (1, BTreeMap::from([(2, 2)])),
+                (2, BTreeMap::new()),
             ]),
         };
 
@@ -1195,13 +1253,13 @@ mod tests {
                 .symbol_mapping
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>(),
+                .collect::<BTreeSet<_>>(),
             expected
                 .alphabet
                 .symbol_mapping
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>()
+                .collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
@@ -1210,30 +1268,352 @@ mod tests {
                 .by_transition
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>(),
+                .collect::<BTreeSet<_>>(),
             expected
                 .alphabet
                 .by_transition
                 .keys()
                 .copied()
-                .collect::<HashSet<_>>()
+                .collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
-            result.states.iter().copied().collect::<HashSet<_>>(),
-            expected.states.iter().copied().collect::<HashSet<_>>()
+            result.states.iter().copied().collect::<BTreeSet<_>>(),
+            expected.states.iter().copied().collect::<BTreeSet<_>>()
         );
 
         assert_eq!(result.initial, expected.initial);
 
         assert_eq!(
-            result.finals.iter().copied().collect::<HashSet<_>>(),
-            expected.finals.iter().copied().collect::<HashSet<_>>()
+            result.finals.iter().copied().collect::<BTreeSet<_>>(),
+            expected.finals.iter().copied().collect::<BTreeSet<_>>()
         );
 
         assert_eq!(
-            result.map.keys().copied().collect::<HashSet<_>>(),
-            expected.map.keys().copied().collect::<HashSet<_>>()
+            result.map.keys().copied().collect::<BTreeSet<_>>(),
+            expected.map.keys().copied().collect::<BTreeSet<_>>()
         );
+    }
+
+    #[test]
+    fn test_parse_pattern_to_fms() {
+        let test_cases = vec![
+            (
+                "a",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1)]),
+                        by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a'])]),
+                    },
+                    states: BTreeSet::from([0, 1]),
+                    initial: 0,
+                    finals: BTreeSet::from([1]),
+                    map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
+                },
+            ),
+            (
+                "ab",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a']),
+                            (2, vec!['b']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2]),
+                    initial: 0,
+                    finals: BTreeSet::from([2]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1)])),
+                        (1, BTreeMap::from([(2, 2)])),
+                        (2, BTreeMap::new()),
+                    ]),
+                },
+            ),
+            (
+                "a|b",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a']),
+                            (2, vec!['b']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2]),
+                    initial: 0,
+                    finals: BTreeSet::from([1, 2]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1), (2, 2)])),
+                        (1, BTreeMap::new()),
+                        (2, BTreeMap::new()),
+                    ]),
+                },
+            ),
+            // (
+            //     "[ab]",
+            //     Fsm {
+            //         alphabet: Alphabet {
+            //             symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 1)]),
+            //             by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a', 'b'])]),
+            //         },
+            //         states: BTreeSet::from([0, 1]),
+            //         initial: 0,
+            //         finals: BTreeSet::from([1]),
+            //         map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
+            //     },
+            // ),
+            (
+                "aaaaa",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1)]),
+                        by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a'])]),
+                    },
+                    states: BTreeSet::from([0, 1, 2, 3, 4, 5]),
+                    initial: 0,
+                    finals: BTreeSet::from([5]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1)])),
+                        (1, BTreeMap::from([(1, 2)])),
+                        (2, BTreeMap::from([(1, 3)])),
+                        (3, BTreeMap::from([(1, 4)])),
+                        (4, BTreeMap::from([(1, 5)])),
+                        (5, BTreeMap::new()),
+                    ]),
+                },
+            ),
+            (
+                "davidholtz",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([
+                            ('\0', 0),
+                            ('a', 1),
+                            ('d', 2),
+                            ('h', 3),
+                            ('i', 4),
+                            ('l', 5),
+                            ('o', 6),
+                            ('t', 7),
+                            ('v', 8),
+                            ('z', 9),
+                        ]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a']),
+                            (2, vec!['d']),
+                            (3, vec!['h']),
+                            (4, vec!['i']),
+                            (5, vec!['l']),
+                            (6, vec!['o']),
+                            (7, vec!['t']),
+                            (8, vec!['v']),
+                            (9, vec!['z']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                    initial: 0,
+                    finals: BTreeSet::from([10]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(2, 1)])),
+                        (1, BTreeMap::from([(1, 2)])),
+                        (2, BTreeMap::from([(8, 3)])),
+                        (3, BTreeMap::from([(4, 4)])),
+                        (4, BTreeMap::from([(2, 5)])),
+                        (5, BTreeMap::from([(3, 6)])),
+                        (6, BTreeMap::from([(6, 7)])),
+                        (7, BTreeMap::from([(5, 8)])),
+                        (8, BTreeMap::from([(7, 9)])),
+                        (9, BTreeMap::from([(9, 10)])),
+                        (10, BTreeMap::new()),
+                    ]),
+                },
+            ),
+            (
+                "a*b",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a']),
+                            (2, vec!['b']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2]),
+                    initial: 0,
+                    finals: BTreeSet::from([2]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1), (2, 2)])),
+                        (1, BTreeMap::from([(1, 1), (2, 2)])),
+                        (2, BTreeMap::new()),
+                    ]),
+                },
+            ),
+            (
+                "(ab|cd)*",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([
+                            ('\0', 0),
+                            ('a', 1),
+                            ('b', 2),
+                            ('c', 3),
+                            ('d', 4),
+                        ]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a']),
+                            (2, vec!['b']),
+                            (3, vec!['c']),
+                            (4, vec!['d']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2, 3, 4]),
+                    initial: 0,
+                    finals: BTreeSet::from([0, 3, 4]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1), (3, 2)])),
+                        (1, BTreeMap::from([(2, 3)])),
+                        (2, BTreeMap::from([(4, 4)])),
+                        (3, BTreeMap::from([(1, 1), (3, 2)])),
+                        (4, BTreeMap::from([(1, 1), (3, 2)])),
+                    ]),
+                },
+            ),
+            // (
+            //     "[a-d]",
+            //     Fsm {
+            //         alphabet: Alphabet {
+            //             symbol_mapping: BTreeMap::from([
+            //                 ('a', 0),
+            //                 ('b', 0),
+            //                 ('c', 0),
+            //                 ('d', 0),
+            //                 ('\0', 1),
+            //             ]),
+            //             by_transition: BTreeMap::from([
+            //                 (0, vec!['a', 'b', 'c', 'd']),
+            //                 (1, vec!['\0']),
+            //             ]),
+            //         },
+            //         states: BTreeSet::from([0, 1]),
+            //         initial: 0,
+            //         finals: BTreeSet::from([1]),
+            //         map: BTreeMap::from([(0, BTreeMap::from([(0, 1)])), (1, BTreeMap::new())]),
+            //     },
+            // ),
+            //
+            // (
+            //     "[a-z0-9]+",
+            //     Fsm {
+            //         alphabet: Alphabet {
+            //             symbol_mapping: BTreeMap::from([
+            //                 ('\0', 0),
+            //                 ('0', 1),
+            //                 ('1', 2),
+            //                 ('2', 3),
+            //                 ('3', 4),
+            //                 ('4', 5),
+            //                 ('5', 6),
+            //                 ('6', 7),
+            //                 ('7', 8),
+            //                 ('8', 9),
+            //                 ('9', 10),
+            //                 ('a', 11),
+            //                 ('b', 12),
+            //                 ('c', 13),
+            //                 ('d', 14),
+            //                 ('e', 15),
+            //                 ('f', 16),
+            //                 ('g', 17),
+            //                 ('h', 18),
+            //                 ('i', 19),
+            //                 ('j', 20),
+            //                 ('k', 21),
+            //                 ('l', 22),
+            //                 ('m', 23),
+            //                 ('n', 24),
+            //                 ('o', 25),
+            //                 ('p', 26),
+            //                 ('q', 27),
+            //                 ('r', 28),
+            //                 ('s', 29),
+            //                 ('t', 30),
+            //                 ('u', 31),
+            //                 ('v', 32),
+            //                 ('w', 33),
+            //                 ('x', 34),
+            //                 ('y', 35),
+            //                 ('z', 36),
+            //             ]),
+            //             by_transition: BTreeMap::from([
+            //                 (1, vec!['\0']),
+            //                 (
+            //                     0,
+            //                     vec![
+            //                         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+            //                         'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+            //                         'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            //                     ],
+            //                 ),
+            //             ]),
+            //         },
+            //         states: BTreeSet::from([0, 1, 2]),
+            //         initial: 0,
+            //         finals: BTreeSet::from([1, 2]),
+            //         map: BTreeMap::from([
+            //             (0, BTreeMap::from([(36, 1)])),
+            //             (1, BTreeMap::from([(36, 2)])),
+            //             (2, BTreeMap::from([(36, 2)])),
+            //         ]),
+            //     },
+            // ),
+            // (
+            //     "c?",
+            //     Fsm {
+            //         alphabet: Alphabet {
+            //             symbol_mapping: BTreeMap::from([('\0', 0), ('c', 1)]),
+            //             by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['c'])]),
+            //         },
+            //         states: BTreeSet::from([0, 1]),
+            //         initial: 0,
+            //         finals: BTreeSet::from([1]),
+            //         map: HashMap::from([(0, HashMap::from([(1, 1)])), (1, HashMap::new())]),
+            //     },
+            // ),
+        ];
+
+        for (pattern, expected) in test_cases {
+            let fsm = parse_pattern_to_fms(pattern);
+
+            println!("Pattern: {}", pattern);
+            println!("Generated FSM: {:?}", fsm);
+            println!("Expected  FSM: {:?}", expected);
+
+            for (state, transitions) in fsm.map.iter() {
+                for (symbol, next_state) in transitions.iter() {
+                    assert!(
+                        expected.map[state].contains_key(symbol),
+                        "State {} does not contain symbol {}",
+                        state,
+                        symbol
+                    );
+                    assert_eq!(
+                        expected.map[state][symbol], *next_state,
+                        "State {} does not transition to the expected state for symbol {}",
+                        state, symbol
+                    );
+                }
+            }
+            assert_eq!(fsm.states, expected.states);
+            assert_eq!(fsm.initial, expected.initial);
+            assert_eq!(fsm.finals, expected.finals);
+            assert_eq!(fsm.map, expected.map);
+        }
     }
 }

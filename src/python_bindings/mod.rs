@@ -13,7 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::wrap_pyfunction;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 #[pyclass]
 pub struct FSMInfo {
@@ -506,13 +506,13 @@ pub fn parse_pattern_to_fsm_internal(pattern: &str) -> PyResult<InteregularFSMIn
     let flags = None;
 
     let default_alphabet = Alphabet::<char>::default();
-    let empty_flags: HashSet<Flag> = HashSet::new();
+    let empty_flags: BTreeSet<Flag> = BTreeSet::new();
     let patterns_alphabet: Alphabet<char> = regex_element.get_alphabet(&empty_flags);
 
     // TODO: this is a hack to build a alphabet with the same symbols as the patterns
     // and ensure that \0 is the anything symbol at 0. However, this is not a good solution
     // and should be handled by an improved alphabet implementation
-    let mut my_new_symbol_mapping = HashMap::new();
+    let mut my_new_symbol_mapping = BTreeMap::new();
     my_new_symbol_mapping.insert('\0', 0 as usize); // add \0 as the anything symbol at 0
 
     let mut counter = 1;

@@ -1,6 +1,5 @@
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::iter::from_fn;
 
 type TransitionKey = usize;
@@ -8,18 +7,18 @@ type TransitionKey = usize;
 const NONE_KEY: TransitionKey = 600;
 const ANYTHING_ELSE_CHAR: char = '\"';
 
-pub trait SymbolTrait: Eq + Hash + Clone + Debug + From<char> {}
-impl<T: Eq + Hash + Clone + Debug + From<char>> SymbolTrait for T {}
+pub trait SymbolTrait: Eq + Clone + Debug + From<char> {}
+impl<T: Eq + Clone + Debug + From<char>> SymbolTrait for T {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Alphabet<T: SymbolTrait> {
-    pub symbol_mapping: HashMap<T, TransitionKey>,
-    pub by_transition: HashMap<TransitionKey, Vec<T>>,
+    pub symbol_mapping: BTreeMap<T, TransitionKey>,
+    pub by_transition: BTreeMap<TransitionKey, Vec<T>>,
 }
 
-impl<T: SymbolTrait> Alphabet<T> {
-    pub fn new(symbol_mapping: HashMap<T, TransitionKey>) -> Self {
-        let mut by_transition = HashMap::new();
+impl<T: SymbolTrait + std::cmp::Ord> Alphabet<T> {
+    pub fn new(symbol_mapping: BTreeMap<T, TransitionKey>) -> Self {
+        let mut by_transition = BTreeMap::new();
         for (symbol, transition) in &symbol_mapping {
             by_transition
                 .entry(*transition)
@@ -35,8 +34,8 @@ impl<T: SymbolTrait> Alphabet<T> {
     #[must_use]
     pub fn empty() -> Self {
         Alphabet {
-            symbol_mapping: HashMap::new(),
-            by_transition: HashMap::new(),
+            symbol_mapping: BTreeMap::new(),
+            by_transition: BTreeMap::new(),
         }
     }
 
@@ -55,8 +54,8 @@ impl<T: SymbolTrait> Alphabet<T> {
     }
 
     #[must_use]
-    pub fn from_groups(groups: &[HashSet<T>]) -> Self {
-        let mut symbol_mapping = HashMap::new();
+    pub fn from_groups(groups: &[BTreeSet<T>]) -> Self {
+        let mut symbol_mapping = BTreeMap::new();
         for (i, group) in groups.iter().enumerate() {
             for symbol in group {
                 symbol_mapping.insert(symbol.clone(), i);
@@ -65,12 +64,12 @@ impl<T: SymbolTrait> Alphabet<T> {
         Alphabet::new(symbol_mapping)
     }
 
-    pub fn union(alphabets: &[Self]) -> (Self, Vec<HashMap<TransitionKey, TransitionKey>>) {
-        let all_symbols: HashSet<&T> = alphabets
+    pub fn union(alphabets: &[Self]) -> (Self, Vec<BTreeMap<TransitionKey, TransitionKey>>) {
+        let all_symbols: BTreeSet<&T> = alphabets
             .iter()
             .flat_map(|a| a.symbol_mapping.keys())
             .collect();
-        let mut symbol_to_keys = HashMap::new();
+        let mut symbol_to_keys = BTreeMap::new();
         for symbol in all_symbols {
             let keys = alphabets.iter().map(|a| a.get(symbol)).collect::<Vec<_>>();
             symbol_to_keys.insert(symbol, keys);
@@ -84,12 +83,12 @@ impl<T: SymbolTrait> Alphabet<T> {
                 .push(symbol);
         }
 
-        let mut keys_to_key = HashMap::new();
+        let mut keys_to_key = BTreeMap::new();
         for keys in keys_to_symbols.keys() {
             keys_to_key.insert(keys.clone(), keys_to_key.len());
         }
 
-        let mut symbol_mapping = HashMap::new();
+        let mut symbol_mapping = BTreeMap::new();
         for (keys, symbols) in keys_to_symbols {
             for symbol in symbols {
                 symbol_mapping.insert(symbol.clone(), keys_to_key[&keys]);
@@ -97,8 +96,8 @@ impl<T: SymbolTrait> Alphabet<T> {
         }
         let result = Alphabet::<T>::new(symbol_mapping);
 
-        let mut new_to_old_mappings: Vec<HashMap<TransitionKey, TransitionKey>> =
-            (0..alphabets.len()).map(|_| HashMap::new()).collect();
+        let mut new_to_old_mappings: Vec<BTreeMap<TransitionKey, TransitionKey>> =
+            (0..alphabets.len()).map(|_| BTreeMap::new()).collect();
 
         for (keys, new_key) in &keys_to_key {
             for (i, &old_key) in keys.iter().enumerate() {
@@ -112,7 +111,7 @@ impl<T: SymbolTrait> Alphabet<T> {
 
 impl Default for Alphabet<char> {
     fn default() -> Self {
-        let mut symbol_mapping = HashMap::new();
+        let mut symbol_mapping = BTreeMap::new();
         // only insert \0 for anything_else
         symbol_mapping.insert('\0', 0);
         Alphabet::new(symbol_mapping)
@@ -122,19 +121,19 @@ impl Default for Alphabet<char> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fsm<T: SymbolTrait> {
     pub alphabet: Alphabet<T>,
-    pub states: HashSet<TransitionKey>,
+    pub states: BTreeSet<TransitionKey>,
     pub initial: TransitionKey,
-    pub finals: HashSet<TransitionKey>,
-    pub map: HashMap<TransitionKey, HashMap<TransitionKey, TransitionKey>>,
+    pub finals: BTreeSet<TransitionKey>,
+    pub map: BTreeMap<TransitionKey, BTreeMap<TransitionKey, TransitionKey>>,
 }
-impl<T: SymbolTrait> Fsm<T> {
+impl<T: SymbolTrait + std::cmp::Ord> Fsm<T> {
     #[must_use]
     pub fn new(
         alphabet: Alphabet<T>,
-        states: HashSet<TransitionKey>,
+        states: BTreeSet<TransitionKey>,
         initial: TransitionKey,
-        finals: HashSet<TransitionKey>,
-        map: HashMap<TransitionKey, HashMap<TransitionKey, TransitionKey>>,
+        finals: BTreeSet<TransitionKey>,
+        map: BTreeMap<TransitionKey, BTreeMap<TransitionKey, TransitionKey>>,
     ) -> Self {
         // TODO: revisit if we need validation logic
         Fsm {
@@ -175,21 +174,21 @@ impl<T: SymbolTrait> Fsm<T> {
 
     pub fn reversed(&self) -> Self {
         let initial = self.finals.clone();
-        let mut reverse_map = HashMap::new();
+        let mut reverse_map = BTreeMap::new();
 
         for (state, transition_map) in &self.map {
             for (transition, next_state) in transition_map {
                 reverse_map
                     .entry((*next_state, *transition))
-                    .or_insert_with(HashSet::new)
+                    .or_insert_with(BTreeSet::new)
                     .insert(*state);
             }
         }
 
-        let follow = |current: &HashSet<TransitionKey>,
+        let follow = |current: &BTreeSet<TransitionKey>,
                       transition: &TransitionKey|
-         -> Option<HashSet<TransitionKey>> {
-            let mut next_states = HashSet::new();
+         -> Option<BTreeSet<TransitionKey>> {
+            let mut next_states = BTreeSet::new();
             for state in current {
                 if let Some(prev_states) = reverse_map.get(&(*state, *transition)) {
                     next_states.extend(prev_states);
@@ -201,14 +200,14 @@ impl<T: SymbolTrait> Fsm<T> {
             Some(next_states)
         };
 
-        let final_fn = |state: &HashSet<TransitionKey>| state.contains(&self.initial);
+        let final_fn = |state: &BTreeSet<TransitionKey>| state.contains(&self.initial);
 
         crawl(&self.alphabet, initial, final_fn, follow)
     }
 
     #[must_use]
     pub fn is_live(&self, state: TransitionKey) -> bool {
-        let mut seen = HashSet::new();
+        let mut seen = BTreeSet::new();
         let mut reachable = vec![state];
         let mut i = 0;
 
@@ -236,7 +235,7 @@ impl<T: SymbolTrait> Fsm<T> {
     }
 
     pub fn strings(&self) -> impl Iterator<Item = Vec<T>> + '_ {
-        let live_states: HashSet<TransitionKey> = self
+        let live_states: BTreeSet<TransitionKey> = self
             .states
             .iter()
             .filter(|&&s| self.is_live(s))
@@ -307,8 +306,8 @@ impl<T: SymbolTrait> Fsm<T> {
 
         let connect_all = |i: TransitionKey,
                            substate: TransitionKey|
-         -> HashSet<(TransitionKey, TransitionKey)> {
-            let mut result = HashSet::new();
+         -> BTreeSet<(TransitionKey, TransitionKey)> {
+            let mut result = BTreeSet::new();
             let current_i = i;
             let mut current_substate = substate;
 
@@ -326,7 +325,7 @@ impl<T: SymbolTrait> Fsm<T> {
 
         let initial = connect_all(0, fsms[0].initial);
 
-        let final_fn = |state: &HashSet<(TransitionKey, TransitionKey)>| {
+        let final_fn = |state: &BTreeSet<(TransitionKey, TransitionKey)>| {
             for &(i, substate) in state {
                 // if i == last_index && fsms[i].finals.contains(&substate) {
                 let _i: usize = i;
@@ -337,10 +336,10 @@ impl<T: SymbolTrait> Fsm<T> {
             false
         };
 
-        let follow = |current: &HashSet<(TransitionKey, TransitionKey)>,
+        let follow = |current: &BTreeSet<(TransitionKey, TransitionKey)>,
                       transition: &TransitionKey|
-         -> Option<HashSet<(TransitionKey, TransitionKey)>> {
-            let mut next = HashSet::new();
+         -> Option<BTreeSet<(TransitionKey, TransitionKey)>> {
+            let mut next = BTreeSet::new();
             for &(i, substate) in current {
                 let _i: usize = i;
                 let fsm = &fsms[_i];
@@ -370,12 +369,12 @@ impl<T: SymbolTrait> Fsm<T> {
 
     #[must_use]
     pub fn star(&self) -> Self {
-        let initial = HashSet::from([self.initial]);
+        let initial = BTreeSet::from([self.initial]);
 
-        let follow = |state: &HashSet<TransitionKey>,
+        let follow = |state: &BTreeSet<TransitionKey>,
                       transition: &TransitionKey|
-         -> Option<HashSet<TransitionKey>> {
-            let mut next = HashSet::new();
+         -> Option<BTreeSet<TransitionKey>> {
+            let mut next = BTreeSet::new();
             for &substate in state {
                 if let Some(transitions) = self.map.get(&substate) {
                     if let Some(&next_state) = transitions.get(transition) {
@@ -398,7 +397,7 @@ impl<T: SymbolTrait> Fsm<T> {
         };
 
         let final_fn =
-            |state: &HashSet<TransitionKey>| state.iter().any(|s| self.finals.contains(s));
+            |state: &BTreeSet<TransitionKey>| state.iter().any(|s| self.finals.contains(s));
 
         let mut result = crawl(&self.alphabet, initial, final_fn, follow);
         result.finals.insert(result.initial);
@@ -408,18 +407,18 @@ impl<T: SymbolTrait> Fsm<T> {
     #[must_use]
     pub fn times(&self, multiplier: usize) -> Self {
         // metastate is a set of iterations+states
-        let initial = HashSet::from([(self.initial, 0)]);
-        let final_fn = |state: &HashSet<(TransitionKey, usize)>| {
+        let initial = BTreeSet::from([(self.initial, 0)]);
+        let final_fn = |state: &BTreeSet<(TransitionKey, usize)>| {
             state.iter().any(|&(substate, iteration)| {
                 substate == self.initial
                     && (self.finals.contains(&substate) || iteration == multiplier)
             })
         };
 
-        let follow = |current: &HashSet<(TransitionKey, usize)>,
+        let follow = |current: &BTreeSet<(TransitionKey, usize)>,
                       transition: &TransitionKey|
-         -> Option<HashSet<(TransitionKey, usize)>> {
-            let mut next = HashSet::new();
+         -> Option<BTreeSet<(TransitionKey, usize)>> {
+            let mut next = BTreeSet::new();
 
             for &(substate, iteration) in current {
                 if iteration < multiplier
@@ -443,12 +442,12 @@ impl<T: SymbolTrait> Fsm<T> {
 
     #[must_use]
     pub fn everythingbut(&self) -> Self {
-        let initial = HashSet::from([(self.initial, 0)]);
+        let initial = BTreeSet::from([(self.initial, 0)]);
 
-        let follow = |current: &HashSet<(TransitionKey, usize)>,
+        let follow = |current: &BTreeSet<(TransitionKey, usize)>,
                       transition: &TransitionKey|
-         -> Option<HashSet<(TransitionKey, usize)>> {
-            let mut next = HashSet::new();
+         -> Option<BTreeSet<(TransitionKey, usize)>> {
+            let mut next = BTreeSet::new();
             for &(substate, iteration) in current {
                 if substate == self.initial
                     && self.map.contains_key(&substate)
@@ -463,7 +462,7 @@ impl<T: SymbolTrait> Fsm<T> {
             Some(next)
         };
 
-        let final_fn = |state: &HashSet<(TransitionKey, usize)>| {
+        let final_fn = |state: &BTreeSet<(TransitionKey, usize)>| {
             !state.iter().any(|&(substate, _iteration)| {
                 substate == self.initial && self.finals.contains(&substate)
             })
@@ -478,19 +477,20 @@ impl<T: SymbolTrait> Fsm<T> {
     {
         let alphabets_from_fsms: Vec<Alphabet<T>> =
             fsms.iter().map(|f| f.alphabet.clone()).collect();
+
         let (alphabet, new_to_old) = Alphabet::union(alphabets_from_fsms.as_slice());
         // let alphabet = alphabets.0;
         // let new_to_old = alphabets.1;
-        let initial: HashMap<usize, TransitionKey> = fsms
+        let initial: BTreeMap<usize, TransitionKey> = fsms
             .iter()
             .enumerate()
             .map(|(i, fsm)| (i, fsm.initial))
             .collect();
 
-        let follow = |current: &HashSet<(usize, TransitionKey)>,
+        let follow = |current: &BTreeSet<(usize, TransitionKey)>,
                       transition: &TransitionKey|
-         -> Option<HashSet<(usize, TransitionKey)>> {
-            let mut next = HashSet::new();
+         -> Option<BTreeSet<(usize, TransitionKey)>> {
+            let mut next = BTreeSet::new();
             for (i, fsm) in fsms.iter().enumerate() {
                 if let Some(old_transition) = new_to_old.get(i).and_then(|map| map.get(transition))
                 {
@@ -512,7 +512,7 @@ impl<T: SymbolTrait> Fsm<T> {
             }
         };
 
-        let final_fn = |state: &HashSet<(usize, TransitionKey)>| {
+        let final_fn = |state: &BTreeSet<(usize, TransitionKey)>| {
             let accepts: Vec<bool> = fsms
                 .iter()
                 .enumerate()
@@ -525,46 +525,46 @@ impl<T: SymbolTrait> Fsm<T> {
             test(&accepts)
         };
 
-        let initial_set: HashSet<(usize, TransitionKey)> = initial.into_iter().collect();
+        let initial_set: BTreeSet<(usize, TransitionKey)> = initial.into_iter().collect();
 
         crawl(&alphabet, initial_set, final_fn, follow)
     }
 }
 
 #[must_use]
-pub fn null<T: SymbolTrait>(alphabet: &Alphabet<T>) -> Fsm<T> {
+pub fn null<T: SymbolTrait + std::cmp::Ord>(alphabet: &Alphabet<T>) -> Fsm<T> {
     Fsm::new(
         alphabet.clone(),
-        HashSet::from([0]),
+        BTreeSet::from([0]),
         0,
-        HashSet::new(),
-        HashMap::from([(0, alphabet.by_transition.keys().map(|&k| (k, 0)).collect())]),
+        BTreeSet::new(),
+        BTreeMap::from([(0, alphabet.by_transition.keys().map(|&k| (k, 0)).collect())]),
     )
 }
 
 #[must_use]
-pub fn epsilon<T: SymbolTrait>(alphabet: &Alphabet<T>) -> Fsm<T> {
+pub fn epsilon<T: SymbolTrait + std::cmp::Ord>(alphabet: &Alphabet<T>) -> Fsm<T> {
     Fsm::new(
         alphabet.clone(),
-        HashSet::from([0]),
+        BTreeSet::from([0]),
         0,
-        HashSet::from([0]),
-        HashMap::new(),
+        BTreeSet::from([0]),
+        BTreeMap::new(),
     )
 }
 
 fn crawl<T, F, G, I, C>(alphabet: &Alphabet<T>, initial: C, final_fn: F, follow: G) -> Fsm<T>
 where
-    T: SymbolTrait,
+    T: SymbolTrait + std::cmp::Ord,
     F: Fn(&C) -> bool,
     G: Fn(&C, &TransitionKey) -> Option<C>,
-    I: Clone + Eq + Hash + std::fmt::Debug,
+    I: Clone + Eq + std::fmt::Debug,
     C: IntoIterator<Item = I> + FromIterator<I> + Clone + PartialEq + std::fmt::Debug,
 {
     let mut states = VecDeque::new();
     states.push_back(initial);
-    let mut finals = HashSet::<TransitionKey>::new();
-    let mut map = HashMap::new();
+    let mut finals = BTreeSet::<TransitionKey>::new();
+    let mut map = BTreeMap::new();
     let mut i = 0;
 
     while i < states.len() {
@@ -574,7 +574,7 @@ where
             finals.insert(i);
         }
 
-        map.insert(i, HashMap::new());
+        map.insert(i, BTreeMap::new());
 
         for transition in alphabet.by_transition.keys() {
             match follow(&state, transition) {
@@ -611,21 +611,21 @@ mod tests {
 
     #[test]
     fn test_union_two_single_letter_alphabets() {
-        let mut symbol_mapping1 = HashMap::new();
-        symbol_mapping1.insert('\0', 0);
+        let mut symbol_mapping1 = BTreeMap::new();
+        symbol_mapping1.insert('\x00', 0);
         symbol_mapping1.insert('a', 1);
         let alphabet1 = Alphabet::new(symbol_mapping1);
 
-        let mut symbol_mapping2 = HashMap::new();
-        symbol_mapping2.insert('\0', 0);
+        let mut symbol_mapping2 = BTreeMap::new();
+        symbol_mapping2.insert('\x00', 0);
         symbol_mapping2.insert('b', 1);
         let alphabet2 = Alphabet::new(symbol_mapping2);
 
-        let (union_alphabet, new_to_old) = Alphabet::union(&[alphabet1, alphabet2]);
+        let (union_alphabet, new_to_old) = Alphabet::union(&[alphabet1.clone(), alphabet2.clone()]);
 
         let expected_alphabet = Alphabet {
-            symbol_mapping: HashMap::from([('\0', 0), ('a', 1), ('b', 2)]),
-            by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
+            symbol_mapping: BTreeMap::from([('\x00', 0), ('a', 1), ('b', 2)]),
+            by_transition: BTreeMap::from([(0, vec!['\x00']), (1, vec!['a']), (2, vec!['b'])]),
         };
 
         println!("{:?}", union_alphabet);
@@ -643,12 +643,12 @@ mod tests {
     }
 
     fn create_simple_fsm() -> Fsm<char> {
-        let mut symbol_mapping = HashMap::new();
+        let mut symbol_mapping = BTreeMap::new();
         symbol_mapping.insert('a', 0);
         symbol_mapping.insert('b', 1);
         let alphabet = Alphabet::new(symbol_mapping);
 
-        let mut map = HashMap::new();
+        let mut map = BTreeMap::new();
         // only 'a' transition from initial state
         map.insert(0, [(0, 1)].iter().copied().collect());
         // only 'b' transitions from accepting state
@@ -684,8 +684,8 @@ mod tests {
             fsm.alphabet.clone(),
             [0].iter().copied().collect(),
             0,
-            HashSet::new(),
-            HashMap::new(),
+            BTreeSet::new(),
+            BTreeMap::new(),
         );
         assert!(empty_fsm.is_empty());
     }
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let mut symbol_mapping = HashMap::new();
+        let mut symbol_mapping = BTreeMap::new();
         symbol_mapping.insert('a', 0);
         symbol_mapping.insert('b', 1);
         let alphabet = Alphabet::new(symbol_mapping);
@@ -762,13 +762,13 @@ mod tests {
     #[test]
     fn test_union_of_single_character_fsms() {
         // Create alphabet for FSM1 ('a' and anything_else)
-        let mut symbol_mapping1 = HashMap::new();
+        let mut symbol_mapping1 = BTreeMap::new();
         symbol_mapping1.insert('\0', 0); // '\0' represents anything_else
         symbol_mapping1.insert('a', 1);
         let alphabet1 = Alphabet::new(symbol_mapping1);
 
         // Create alphabet for FSM2 ('b' and anything_else)
-        let mut symbol_mapping2 = HashMap::new();
+        let mut symbol_mapping2 = BTreeMap::new();
         symbol_mapping2.insert('\0', 0); // '\0' represents anything_else
         symbol_mapping2.insert('b', 1);
         let alphabet2 = Alphabet::new(symbol_mapping2);
@@ -834,7 +834,7 @@ mod tests {
         // compare states
         assert_eq!(union_fsm.states, [0, 1, 2].iter().copied().collect());
 
-        let expected_map: HashMap<TransitionKey, HashMap<TransitionKey, TransitionKey>> = [
+        let expected_map: BTreeMap<TransitionKey, BTreeMap<TransitionKey, TransitionKey>> = [
             (0, [(1, 1), (2, 2)].iter().copied().collect()),
             (1, [].iter().copied().collect()),
             (2, [].iter().copied().collect()),
@@ -848,13 +848,13 @@ mod tests {
     #[test]
     fn test_concatenate_of_single_character_fsms() {
         // Create alphabet for FSM1 ('a' and anything_else)
-        let mut symbol_mapping1 = HashMap::new();
+        let mut symbol_mapping1 = BTreeMap::new();
         symbol_mapping1.insert('\0', 0); // '\0' represents anything_else
         symbol_mapping1.insert('a', 1);
         let alphabet1 = Alphabet::new(symbol_mapping1);
 
         // Create alphabet for FSM2 ('b' and anything_else)
-        let mut symbol_mapping2 = HashMap::new();
+        let mut symbol_mapping2 = BTreeMap::new();
         symbol_mapping2.insert('\0', 0); // '\0' represents anything_else
         symbol_mapping2.insert('b', 1);
         let alphabet2 = Alphabet::new(symbol_mapping2);
@@ -893,16 +893,16 @@ mod tests {
 
         let expected = Fsm {
             alphabet: Alphabet {
-                symbol_mapping: HashMap::from([('\0', 0), ('a', 1), ('b', 2)]),
-                by_transition: HashMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
+                symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 2)]),
+                by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a']), (2, vec!['b'])]),
             },
-            states: HashSet::from([0, 1, 2]),
+            states: BTreeSet::from([0, 1, 2]),
             initial: 0,
-            finals: HashSet::from([2]),
-            map: HashMap::from([
-                (0, HashMap::from([(1, 1)])),
-                (1, HashMap::from([(2, 2)])),
-                (2, HashMap::new()),
+            finals: BTreeSet::from([2]),
+            map: BTreeMap::from([
+                (0, BTreeMap::from([(1, 1)])),
+                (1, BTreeMap::from([(2, 2)])),
+                (2, BTreeMap::new()),
             ]),
         };
 
@@ -1005,7 +1005,7 @@ mod tests {
 
     #[test]
     fn test_times() {
-        let mut symbol_mapping = HashMap::new();
+        let mut symbol_mapping = BTreeMap::new();
         symbol_mapping.insert('a', 0);
         symbol_mapping.insert('b', 1);
         let alphabet = Alphabet::new(symbol_mapping);
