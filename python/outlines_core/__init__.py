@@ -5,6 +5,3 @@ try:
     __version__ = version("outlines_core")
 except PackageNotFoundError:
     pass
-
-
-__all__ = ["models"]
