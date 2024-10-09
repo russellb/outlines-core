@@ -44,6 +44,8 @@ jobs:
           CIBW_BEFORE_BUILD: pip install setuptools-rust
           CIBW_ENVIRONMENT: PATH="$HOME/.cargo/bin:$PATH"
           CIBW_TEST_COMMAND: python -c "import outlines_core; print(outlines_core.__version__)"
+          CMAKE_PREFIX_PATH: ./dist
+
 
       - uses: actions/upload-artifact@v3
         with:
