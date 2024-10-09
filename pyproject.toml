@@ -27,7 +27,6 @@ dependencies = [
    "interegular",
    "pydantic>=2.0",
    "jsonschema",
-   "typing_extensions",
 ]
 dynamic = ["version"]
 
