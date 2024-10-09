@@ -853,21 +853,26 @@ pub fn parse_pattern_to_fms(pattern: &str) -> Fsm<char> {
     let empty_flags: BTreeSet<Flag> = BTreeSet::new();
     let patterns_alphabet: Alphabet<char> = regex_element.get_alphabet(&empty_flags);
 
-    // TODO: this is a hack to build a alphabet with the same symbols as the patterns
-    // and ensure that \0 is the anything symbol at 0. However, this is not a good solution
-    // and should be handled by an improved alphabet implementation
-    let mut my_new_symbol_mapping = BTreeMap::new();
-    my_new_symbol_mapping.insert('\0', 0 as usize); // add \0 as the anything symbol at 0
-
-    let mut counter = 1;
-    for (symbol, _) in patterns_alphabet.symbol_mapping.iter() {
+    let mut new_symbol_mapping: BTreeMap<char, usize> = BTreeMap::new();
+    let mut new_by_transition: BTreeMap<usize, Vec<char>> = BTreeMap::new();
+    new_symbol_mapping.insert('\0', 0);
+    for (symbol, index) in patterns_alphabet.symbol_mapping.iter() {
         if *symbol != '\0' {
-            my_new_symbol_mapping.insert(*symbol, counter as usize);
-            counter += 1;
+            let new_index = index + 1;
+            new_symbol_mapping.insert(*symbol, new_index);
+            // add to the existing transitions if it exists
+            if new_by_transition.contains_key(&new_index) {
+                let mut transitions = new_by_transition.get_mut(&new_index).unwrap();
+                transitions.push(*symbol);
+            } else {
+                new_by_transition.insert(new_index, vec![*symbol]);
+            }
         }
     }
-
-    let alphabet = Alphabet::new(my_new_symbol_mapping);
+    let alphabet = Alphabet {
+        symbol_mapping: new_symbol_mapping,
+        by_transition: new_by_transition,
+    };
     let fsm_info = regex_element.to_fsm(Some(alphabet.clone()), prefix_postfix, flags);
 
     fsm_info
@@ -1353,19 +1358,19 @@ mod tests {
                     ]),
                 },
             ),
-            // (
-            //     "[ab]",
-            //     Fsm {
-            //         alphabet: Alphabet {
-            //             symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 1)]),
-            //             by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a', 'b'])]),
-            //         },
-            //         states: BTreeSet::from([0, 1]),
-            //         initial: 0,
-            //         finals: BTreeSet::from([1]),
-            //         map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
-            //     },
-            // ),
+            (
+                "[ab]",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([('\0', 0), ('a', 1), ('b', 1)]),
+                        by_transition: BTreeMap::from([(0, vec!['\0']), (1, vec!['a', 'b'])]),
+                    },
+                    states: BTreeSet::from([0, 1]),
+                    initial: 0,
+                    finals: BTreeSet::from([1]),
+                    map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
+                },
+            ),
             (
                 "aaaaa",
                 Fsm {
@@ -1392,26 +1397,26 @@ mod tests {
                     alphabet: Alphabet {
                         symbol_mapping: BTreeMap::from([
                             ('\0', 0),
-                            ('a', 1),
-                            ('d', 2),
-                            ('h', 3),
+                            ('a', 2),
+                            ('d', 1),
+                            ('h', 5),
                             ('i', 4),
-                            ('l', 5),
+                            ('l', 7),
                             ('o', 6),
-                            ('t', 7),
-                            ('v', 8),
+                            ('t', 8),
+                            ('v', 3),
                             ('z', 9),
                         ]),
                         by_transition: BTreeMap::from([
                             (0, vec!['\0']),
-                            (1, vec!['a']),
-                            (2, vec!['d']),
-                            (3, vec!['h']),
+                            (2, vec!['a']),
+                            (1, vec!['d']),
+                            (5, vec!['h']),
                             (4, vec!['i']),
-                            (5, vec!['l']),
+                            (7, vec!['l']),
                             (6, vec!['o']),
-                            (7, vec!['t']),
-                            (8, vec!['v']),
+                            (8, vec!['t']),
+                            (3, vec!['v']),
                             (9, vec!['z']),
                         ]),
                     },
@@ -1419,15 +1424,15 @@ mod tests {
                     initial: 0,
                     finals: BTreeSet::from([10]),
                     map: BTreeMap::from([
-                        (0, BTreeMap::from([(2, 1)])),
-                        (1, BTreeMap::from([(1, 2)])),
-                        (2, BTreeMap::from([(8, 3)])),
+                        (0, BTreeMap::from([(1, 1)])),
+                        (1, BTreeMap::from([(2, 2)])),
+                        (2, BTreeMap::from([(3, 3)])),
                         (3, BTreeMap::from([(4, 4)])),
-                        (4, BTreeMap::from([(2, 5)])),
-                        (5, BTreeMap::from([(3, 6)])),
+                        (4, BTreeMap::from([(1, 5)])),
+                        (5, BTreeMap::from([(5, 6)])),
                         (6, BTreeMap::from([(6, 7)])),
-                        (7, BTreeMap::from([(5, 8)])),
-                        (8, BTreeMap::from([(7, 9)])),
+                        (7, BTreeMap::from([(7, 8)])),
+                        (8, BTreeMap::from([(8, 9)])),
                         (9, BTreeMap::from([(9, 10)])),
                         (10, BTreeMap::new()),
                     ]),
@@ -1485,94 +1490,93 @@ mod tests {
                     ]),
                 },
             ),
-            // (
-            //     "[a-d]",
-            //     Fsm {
-            //         alphabet: Alphabet {
-            //             symbol_mapping: BTreeMap::from([
-            //                 ('a', 0),
-            //                 ('b', 0),
-            //                 ('c', 0),
-            //                 ('d', 0),
-            //                 ('\0', 1),
-            //             ]),
-            //             by_transition: BTreeMap::from([
-            //                 (0, vec!['a', 'b', 'c', 'd']),
-            //                 (1, vec!['\0']),
-            //             ]),
-            //         },
-            //         states: BTreeSet::from([0, 1]),
-            //         initial: 0,
-            //         finals: BTreeSet::from([1]),
-            //         map: BTreeMap::from([(0, BTreeMap::from([(0, 1)])), (1, BTreeMap::new())]),
-            //     },
-            // ),
-            //
-            // (
-            //     "[a-z0-9]+",
-            //     Fsm {
-            //         alphabet: Alphabet {
-            //             symbol_mapping: BTreeMap::from([
-            //                 ('\0', 0),
-            //                 ('0', 1),
-            //                 ('1', 2),
-            //                 ('2', 3),
-            //                 ('3', 4),
-            //                 ('4', 5),
-            //                 ('5', 6),
-            //                 ('6', 7),
-            //                 ('7', 8),
-            //                 ('8', 9),
-            //                 ('9', 10),
-            //                 ('a', 11),
-            //                 ('b', 12),
-            //                 ('c', 13),
-            //                 ('d', 14),
-            //                 ('e', 15),
-            //                 ('f', 16),
-            //                 ('g', 17),
-            //                 ('h', 18),
-            //                 ('i', 19),
-            //                 ('j', 20),
-            //                 ('k', 21),
-            //                 ('l', 22),
-            //                 ('m', 23),
-            //                 ('n', 24),
-            //                 ('o', 25),
-            //                 ('p', 26),
-            //                 ('q', 27),
-            //                 ('r', 28),
-            //                 ('s', 29),
-            //                 ('t', 30),
-            //                 ('u', 31),
-            //                 ('v', 32),
-            //                 ('w', 33),
-            //                 ('x', 34),
-            //                 ('y', 35),
-            //                 ('z', 36),
-            //             ]),
-            //             by_transition: BTreeMap::from([
-            //                 (1, vec!['\0']),
-            //                 (
-            //                     0,
-            //                     vec![
-            //                         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
-            //                         'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-            //                         'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-            //                     ],
-            //                 ),
-            //             ]),
-            //         },
-            //         states: BTreeSet::from([0, 1, 2]),
-            //         initial: 0,
-            //         finals: BTreeSet::from([1, 2]),
-            //         map: BTreeMap::from([
-            //             (0, BTreeMap::from([(36, 1)])),
-            //             (1, BTreeMap::from([(36, 2)])),
-            //             (2, BTreeMap::from([(36, 2)])),
-            //         ]),
-            //     },
-            // ),
+            (
+                "[a-d]",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([
+                            ('\0', 0),
+                            ('a', 1),
+                            ('b', 1),
+                            ('c', 1),
+                            ('d', 1),
+                        ]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (1, vec!['a', 'b', 'c', 'd']),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1]),
+                    initial: 0,
+                    finals: BTreeSet::from([1]),
+                    map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
+                },
+            ),
+            (
+                "[a-z0-9]+",
+                Fsm {
+                    alphabet: Alphabet {
+                        symbol_mapping: BTreeMap::from([
+                            ('\0', 0),
+                            ('0', 1),
+                            ('1', 1),
+                            ('2', 1),
+                            ('3', 1),
+                            ('4', 1),
+                            ('5', 1),
+                            ('6', 1),
+                            ('7', 1),
+                            ('8', 1),
+                            ('9', 1),
+                            ('a', 1),
+                            ('b', 1),
+                            ('c', 1),
+                            ('d', 1),
+                            ('e', 1),
+                            ('f', 1),
+                            ('g', 1),
+                            ('h', 1),
+                            ('i', 1),
+                            ('j', 1),
+                            ('k', 1),
+                            ('l', 1),
+                            ('m', 1),
+                            ('n', 1),
+                            ('o', 1),
+                            ('p', 1),
+                            ('q', 1),
+                            ('r', 1),
+                            ('s', 1),
+                            ('t', 1),
+                            ('u', 1),
+                            ('v', 1),
+                            ('w', 1),
+                            ('x', 1),
+                            ('y', 1),
+                            ('z', 1),
+                        ]),
+                        by_transition: BTreeMap::from([
+                            (0, vec!['\0']),
+                            (
+                                1,
+                                vec![
+                                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+                                    'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                    'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                                ],
+                            ),
+                        ]),
+                    },
+                    states: BTreeSet::from([0, 1, 2]),
+                    initial: 0,
+                    finals: BTreeSet::from([1, 2]),
+                    map: BTreeMap::from([
+                        (0, BTreeMap::from([(1, 1)])),
+                        (1, BTreeMap::from([(1, 2)])),
+                        (2, BTreeMap::from([(1, 2)])),
+                    ]),
+                },
+            ),
             // (
             //     "c?",
             //     Fsm {
@@ -1583,7 +1587,7 @@ mod tests {
             //         states: BTreeSet::from([0, 1]),
             //         initial: 0,
             //         finals: BTreeSet::from([1]),
-            //         map: HashMap::from([(0, HashMap::from([(1, 1)])), (1, HashMap::new())]),
+            //         map: BTreeMap::from([(0, BTreeMap::from([(1, 1)])), (1, BTreeMap::new())]),
             //     },
             // ),
         ];
@@ -1591,7 +1595,7 @@ mod tests {
         for (pattern, expected) in test_cases {
             let fsm = parse_pattern_to_fms(pattern);
 
-            println!("Pattern: {}", pattern);
+            println!("\n\n\nPattern: {}", pattern);
             println!("Generated FSM: {:?}", fsm);
             println!("Expected  FSM: {:?}", expected);
 
