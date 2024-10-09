@@ -25,7 +25,6 @@ classifiers = [
 ]
 dependencies = [
    "interegular",
-   "pydantic>=2.0",
    "jsonschema",
 ]
 dynamic = ["version"]
@@ -33,6 +32,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 test = [
     "pre-commit",
+    "pydantic",
     "pytest",
     "pytest-benchmark",
     "pytest-cov",

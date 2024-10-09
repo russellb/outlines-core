@@ -1,6 +1,6 @@
 import json
 import re
-from typing import List, Literal, Union
+from typing import Literal, Union
 
 import interegular
 import pytest
@@ -17,30 +17,9 @@ from outlines_core.fsm.json_schema import (
     UUID,
     WHITESPACE,
     build_regex_from_schema,
-    get_schema_from_signature,
     to_regex,
 )
 from pydantic import BaseModel, Field, constr
-
-
-def test_function_basic():
-    def test_function(foo: str, bar: List[int]):
-        pass
-
-    result = get_schema_from_signature(test_function)
-    assert result["type"] == "object"
-    assert list(result["properties"].keys()) == ["foo", "bar"]
-    assert result["properties"]["foo"]["type"] == "string"
-    assert result["properties"]["bar"]["type"] == "array"
-    assert result["properties"]["bar"]["items"]["type"] == "integer"
-
-
-def test_function_no_type():
-    def test_function(foo, bar: List[int]):
-        pass
-
-    with pytest.raises(ValueError):
-        get_schema_from_signature(test_function)
 
 
 def test_from_pydantic():
