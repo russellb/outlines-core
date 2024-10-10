@@ -58,7 +58,7 @@ pub fn build_regex_from_schema_py(
 #[pyfunction(name = "to_regex")]
 #[pyo3(signature = (json, whitespace_pattern=None))]
 pub fn to_regex_py(json: Bound<PyDict>, whitespace_pattern: Option<&str>) -> PyResult<String> {
-    let json_value: Value = serde_pyobject::from_pyobject(json).unwrap();
+    let json_value: Value = serde_pyobject::from_pyobject(json)?;
     json_schema::to_regex(&json_value, whitespace_pattern, &json_value)
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
@@ -173,13 +173,11 @@ pub fn create_fsm_index_end_to_end_py<'py>(
 
         for (token_id, end_state) in token_ids_end_states {
             if let Ok(Some(existing_dict)) = states_to_token_subsets.get_item(start_state) {
-                existing_dict.set_item(token_id, end_state).unwrap();
+                existing_dict.set_item(token_id, end_state)?;
             } else {
                 let new_dict = PyDict::new_bound(py);
-                new_dict.set_item(token_id, end_state).unwrap();
-                states_to_token_subsets
-                    .set_item(start_state, new_dict)
-                    .unwrap();
+                new_dict.set_item(token_id, end_state)?;
+                states_to_token_subsets.set_item(start_state, new_dict)?;
             }
 
             if !seen.contains(&end_state) {
