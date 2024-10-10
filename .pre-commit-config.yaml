@@ -55,6 +55,6 @@ repos:
       description: Check files with cargo clippy
       entry: cargo clippy
       language: system
-      args: ["--", "-D", "warnings"]
+      args: ["--all-targets", "--features", "python-bindings", "--", "-D", "warnings"]
       types: [rust]
       pass_filenames: false
