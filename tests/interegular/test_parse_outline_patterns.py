@@ -101,41 +101,41 @@ def deep_compare(pattern1, pattern2):
 @pytest.mark.parametrize(
     "schema,regex,examples",
     [
-        # # String
-        # (
-        #     {"title": "Foo", "type": "string"},
-        #     STRING,
-        #     [
-        #         ("unquotedstring", False),
-        #         ('"(parenthesized_string)"', True),
-        #         ('"malformed) parenthesis (((() string"', True),
-        #         ('"quoted_string"', True),
-        #         (r'"escape_\character"', False),
-        #         (r'"double_\\escape"', True),
-        #         (r'"\n"', False),
-        #         (r'"\\n"', True),
-        #         (r'"unescaped " quote"', False),
-        #         (r'"escaped \" quote"', True),
-        #     ],
-        # ),
-        # # String with maximum length
-        # (
-        #     {"title": "Foo", "type": "string", "maxLength": 3},
-        #     f'"{STRING_INNER}{{,3}}"',
-        #     [('"ab"', True), ('"a""', False), ('"abcd"', False)],
-        # ),
-        # # String with minimum length
-        # (
-        #     {"title": "Foo", "type": "string", "minLength": 3},
-        #     f'"{STRING_INNER}{{3,}}"',
-        #     [('"ab"', False), ('"abcd"', True), ('"abc""', False)],
-        # ),
-        # # String with both minimum and maximum length
-        # (
-        #     {"title": "Foo", "type": "string", "minLength": 3, "maxLength": 5},
-        #     f'"{STRING_INNER}{{3,5}}"',
-        #     [('"ab"', False), ('"abcd"', True), ('"abcdef""', False)],
-        # ),
+        # String
+        (
+            {"title": "Foo", "type": "string"},
+            STRING,
+            [
+                ("unquotedstring", False),
+                ('"(parenthesized_string)"', True),
+                ('"malformed) parenthesis (((() string"', True),
+                ('"quoted_string"', True),
+                (r'"escape_\character"', False),
+                (r'"double_\\escape"', True),
+                (r'"\n"', False),
+                (r'"\\n"', True),
+                (r'"unescaped " quote"', False),
+                (r'"escaped \" quote"', True),
+            ],
+        ),
+        # String with maximum length
+        (
+            {"title": "Foo", "type": "string", "maxLength": 3},
+            f'"{STRING_INNER}{{,3}}"',
+            [('"ab"', True), ('"a""', False), ('"abcd"', False)],
+        ),
+        # String with minimum length
+        (
+            {"title": "Foo", "type": "string", "minLength": 3},
+            f'"{STRING_INNER}{{3,}}"',
+            [('"ab"', False), ('"abcd"', True), ('"abc""', False)],
+        ),
+        # String with both minimum and maximum length
+        (
+            {"title": "Foo", "type": "string", "minLength": 3, "maxLength": 5},
+            f'"{STRING_INNER}{{3,5}}"',
+            [('"ab"', False), ('"abcd"', True), ('"abcdef""', False)],
+        ),
         # String defined by a regular expression
         (
             {"title": "Foo", "type": "string", "pattern": r"^[a-z]$"},
@@ -451,64 +451,64 @@ def deep_compare(pattern1, pattern2):
             rf"\[{WHITESPACE}\]",
             [("[1]", False), ("[]", True), ("[1,2,3]", False), ("[1,2,3,4]", False)],
         ),
-        # # object
-        # (
-        #     {
-        #         "title": "TestSchema",
-        #         "type": "object",
-        #         "properties": {
-        #             "test_dict": {
-        #                 "title": "Test Dict",
-        #                 "additionalProperties": {"type": "string"},
-        #                 "type": "object",
-        #             }
-        #         },
-        #         "required": ["test_dict"],
-        #     },
-        #     rf"""\{{{WHITESPACE}"test_dict"{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{STRING}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{STRING}){{0,}})?{WHITESPACE}\}}{WHITESPACE}\}}""",
-        #     [
-        #         ("""{ "test_dict":{"foo":"bar","baz": "bif"}}""", True),
-        #         ("""{ "test_dict":{"foo":"bar" }}""", True),
-        #         ("""{ "test_dict":{}}""", True),
-        #         ("""{ "WRONG_KEY":{}}""", False),
-        #         ("""{ "test_dict":{"wrong_type" 1}}""", False),
-        #     ],
-        # ),
-        # # object containing object
-        # (
-        #     {
-        #         "title": "TestSchema",
-        #         "type": "object",
-        #         "properties": {
-        #             "test_dict": {
-        #                 "title": "Test Dict",
-        #                 "additionalProperties": {
-        #                     "additionalProperties": {"type": "integer"},
-        #                     "type": "object",
-        #                 },
-        #                 "type": "object",
-        #             }
-        #         },
-        #         "required": ["test_dict"],
-        #     },
-        #     rf"""\{{{WHITESPACE}"test_dict"{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}){{0,}})?{WHITESPACE}\}}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}){{0,}})?{WHITESPACE}\}}){{0,}})?{WHITESPACE}\}}{WHITESPACE}\}}""",
-        #     [
-        #         (
-        #             """{"test_dict": {"foo": {"bar": 123, "apple": 99}, "baz": {"bif": 456}}}""",
-        #             True,
-        #         ),
-        #         (
-        #             """{"test_dict": {"anykey": {"anykey": 123}, "anykey2": {"bif": 456}}}""",
-        #             True,
-        #         ),
-        #         ("""{"test_dict": {}}""", True),
-        #         ("""{"test_dict": {"dict of empty dicts are ok": {} }}""", True),
-        #         (
-        #             """{"test_dict": {"anykey": {"ONLY Dict[Dict]": 123}, "No Dict[int]" 1: }}""",
-        #             False,
-        #         ),
-        #     ],
-        # ),
+        # object
+        (
+            {
+                "title": "TestSchema",
+                "type": "object",
+                "properties": {
+                    "test_dict": {
+                        "title": "Test Dict",
+                        "additionalProperties": {"type": "string"},
+                        "type": "object",
+                    }
+                },
+                "required": ["test_dict"],
+            },
+            rf"""\{{{WHITESPACE}"test_dict"{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{STRING}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{STRING}){{0,}})?{WHITESPACE}\}}{WHITESPACE}\}}""",
+            [
+                ("""{ "test_dict":{"foo":"bar","baz": "bif"}}""", True),
+                ("""{ "test_dict":{"foo":"bar" }}""", True),
+                ("""{ "test_dict":{}}""", True),
+                ("""{ "WRONG_KEY":{}}""", False),
+                ("""{ "test_dict":{"wrong_type" 1}}""", False),
+            ],
+        ),
+        # object containing object
+        (
+            {
+                "title": "TestSchema",
+                "type": "object",
+                "properties": {
+                    "test_dict": {
+                        "title": "Test Dict",
+                        "additionalProperties": {
+                            "additionalProperties": {"type": "integer"},
+                            "type": "object",
+                        },
+                        "type": "object",
+                    }
+                },
+                "required": ["test_dict"],
+            },
+            rf"""\{{{WHITESPACE}"test_dict"{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}){{0,}})?{WHITESPACE}\}}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}\{{{WHITESPACE}({STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}({WHITESPACE},{WHITESPACE}{STRING}{WHITESPACE}:{WHITESPACE}{INTEGER}){{0,}})?{WHITESPACE}\}}){{0,}})?{WHITESPACE}\}}{WHITESPACE}\}}""",
+            [
+                (
+                    """{"test_dict": {"foo": {"bar": 123, "apple": 99}, "baz": {"bif": 456}}}""",
+                    True,
+                ),
+                (
+                    """{"test_dict": {"anykey": {"anykey": 123}, "anykey2": {"bif": 456}}}""",
+                    True,
+                ),
+                ("""{"test_dict": {}}""", True),
+                ("""{"test_dict": {"dict of empty dicts are ok": {} }}""", True),
+                (
+                    """{"test_dict": {"anykey": {"ONLY Dict[Dict]": 123}, "No Dict[int]" 1: }}""",
+                    False,
+                ),
+            ],
+        ),
         # # oneOf
         # (
         #     {
@@ -527,33 +527,33 @@ def deep_compare(pattern1, pattern2):
         #         ('12.3true"a"', False),
         #     ],
         # ),
-        # # anyOf
-        # (
-        #     {
-        #         "title": "Foo",
-        #         "anyOf": [{"type": "string"}, {"type": "integer"}],
-        #     },
-        #     rf"({STRING}|{INTEGER})",
-        #     [("12", True), ('"a"', True), ('1"a"', False)],
-        # ),
-        # # allOf
-        # (
-        #     {
-        #         "title": "Foo",
-        #         "allOf": [{"type": "string"}, {"type": "integer"}],
-        #     },
-        #     rf"({STRING}{INTEGER})",
-        #     [('"a"1', True), ('"a"', False), ('"1"', False)],
-        # ),
-        # # Tuple / prefixItems
-        # (
-        #     {
-        #         "title": "Foo",
-        #         "prefixItems": [{"type": "string"}, {"type": "integer"}],
-        #     },
-        #     rf"\[{WHITESPACE}{STRING}{WHITESPACE},{WHITESPACE}{INTEGER}{WHITESPACE}\]",
-        #     [('["a", 1]', True), ('["a", 1, 1]', False), ("[]", False)],
-        # ),
+        # anyOf
+        (
+            {
+                "title": "Foo",
+                "anyOf": [{"type": "string"}, {"type": "integer"}],
+            },
+            rf"({STRING}|{INTEGER})",
+            [("12", True), ('"a"', True), ('1"a"', False)],
+        ),
+        # allOf
+        (
+            {
+                "title": "Foo",
+                "allOf": [{"type": "string"}, {"type": "integer"}],
+            },
+            rf"({STRING}{INTEGER})",
+            [('"a"1', True), ('"a"', False), ('"1"', False)],
+        ),
+        # Tuple / prefixItems
+        (
+            {
+                "title": "Foo",
+                "prefixItems": [{"type": "string"}, {"type": "integer"}],
+            },
+            rf"\[{WHITESPACE}{STRING}{WHITESPACE},{WHITESPACE}{INTEGER}{WHITESPACE}\]",
+            [('["a", 1]', True), ('["a", 1, 1]', False), ("[]", False)],
+        ),
         # Nested schema
         (
             {
@@ -572,172 +572,172 @@ def deep_compare(pattern1, pattern2):
             f'\\{{[ ]?"fuzz"[ ]?:[ ]?\\{{[ ]?"spam"[ ]?:[ ]?{INTEGER}[ ]?\\}}[ ]?\\}}',
             [('{ "fuzz": { "spam": 100 }}', True)],
         ),
-        # # Schema with a reference
-        # (
-        #     {
-        #         "title": "User",
-        #         "type": "object",
-        #         "properties": {
-        #             "user_id": {"title": "User Id", "type": "integer"},
-        #             "name": {"title": "Name", "type": "string"},
-        #             "a": {"$ref": "#/properties/name"},
-        #         },
-        #         "required": ["user_id", "name", "a"],
-        #     },
-        #     f'\\{{[ ]?"user_id"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"a"[ ]?:[ ]?{STRING}[ ]?\\}}',
-        #     [('{"user_id": 100, "name": "John", "a": "Marc"}', True)],
-        # ),
-        # (
-        #     {
-        #         "title": "User",
-        #         "type": "object",
-        #         "$defs": {"name": {"title": "Name2", "type": "string"}},
-        #         "properties": {
-        #             "user_id": {"title": "User Id", "type": "integer"},
-        #             "name": {"title": "Name", "type": "string"},
-        #             "name2": {"$ref": "#/$defs/name"},
-        #         },
-        #         "required": ["user_id", "name", "name2"],
-        #     },
-        #     f'\\{{[ ]?"user_id"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"name2"[ ]?:[ ]?{STRING}[ ]?\\}}',
-        #     [('{"user_id": 100, "name": "John", "name2": "Marc"}', True)],
-        # ),
-        # (
-        #     {
-        #         "$id": "customer",
-        #         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        #         "title": "Customer",
-        #         "type": "object",
-        #         "properties": {
-        #             "name": {"type": "string"},
-        #             "last_name": {"type": "string"},
-        #             "address": {"$ref": "customer#/$defs/address"},
-        #         },
-        #         "required": [
-        #             "name",
-        #             "first_name",
-        #             "last_name",
-        #             "address",
-        #             "shipping_address",
-        #             "billing_address",
-        #         ],
-        #         "$defs": {
-        #             "address": {
-        #                 "title": "Address",
-        #                 "$schema": "http://json-schema.org/draft-07/schema#",
-        #                 "type": "object",
-        #                 "properties": {
-        #                     "city": {"type": "string"},
-        #                 },
-        #                 "required": ["street_address", "city", "state"],
-        #                 "definitions": {
-        #                     "state": {
-        #                         "type": "object",
-        #                         "title": "State",
-        #                         "properties": {"name": {"type": "string"}},
-        #                         "required": ["name"],
-        #                     }
-        #                 },
-        #             }
-        #         },
-        #     },
-        #     f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"last_name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"address"[ ]?:[ ]?\\{{[ ]?"city"[ ]?:[ ]?{STRING}[ ]?\\}}[ ]?\\}}',
-        #     [
-        #         (
-        #             '{"name": "John", "last_name": "Doe", "address": {"city": "Paris"}}',
-        #             True,
-        #         )
-        #     ],
-        # ),
-        # # Optional properties
-        # # Last required property in first position
-        # (
-        #     {
-        #         "properties": {
-        #             "name": {"type": "string"},
-        #             "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #             "weapon": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-        #         },
-        #         "required": ["name"],
-        #         "title": "Character",
-        #         "type": "object",
-        #     },
-        #     f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}([ ]?,[ ]?"age"[ ]?:[ ]?({INTEGER}|null))?([ ]?,[ ]?"weapon"[ ]?:[ ]?({STRING}|null))?[ ]?\\}}',
-        #     [
-        #         ('{ "name" : "Player" }', True),
-        #         ('{ "name" : "Player", "weapon" : "sword" }', True),
-        #         ('{ "age" : 10, "weapon" : "sword" }', False),
-        #     ],
-        # ),
-        # # Last required property in middle position
-        # (
-        #     {
-        #         "properties": {
-        #             "name": {"type": "string"},
-        #             "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #             "weapon": {"type": "string"},
-        #             "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #         },
-        #         "required": ["name", "weapon"],
-        #         "title": "Character",
-        #         "type": "object",
-        #     },
-        #     f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,([ ]?"age"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"weapon"[ ]?:[ ]?{STRING}([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?[ ]?\\}}',
-        #     [
-        #         ('{ "name" : "Player" , "weapon" : "sword" }', True),
-        #         (
-        #             '{ "name" : "Player", "age" : 10, "weapon" : "sword" , "strength" : 10 }',
-        #             True,
-        #         ),
-        #         ('{ "weapon" : "sword" }', False),
-        #     ],
-        # ),
-        # # Last required property in last position
-        # (
-        #     {
-        #         "properties": {
-        #             "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-        #             "age": {"type": "integer"},
-        #             "armor": {"type": "string"},
-        #             "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #             "weapon": {"title": "Weapon", "type": "string"},
-        #         },
-        #         "required": ["age", "armor", "weapon"],
-        #         "title": "Character",
-        #         "type": "object",
-        #     },
-        #     f'\\{{([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?[ ]?"age"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"armor"[ ]?:[ ]?{STRING}[ ]?,([ ]?"strength"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"weapon"[ ]?:[ ]?{STRING}[ ]?\\}}',
-        #     [
-        #         (
-        #             '{ "name" : "Player", "age" : 10, "armor" : "plate", "strength" : 11, "weapon" : "sword" }',
-        #             True,
-        #         ),
-        #         ('{ "age" : 10, "armor" : "plate", "weapon" : "sword" }', True),
-        #         (
-        #             '{ "name" : "Kahlhanbeh", "armor" : "plate", "weapon" : "sword" }',
-        #             False,
-        #         ),
-        #     ],
-        # ),
-        # # All properties are optional
-        # (
-        #     {
-        #         "properties": {
-        #             "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-        #             "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #             "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-        #         },
-        #         "title": "Character",
-        #         "type": "object",
-        #     },
-        #     f'\\{{([ ]?"name"[ ]?:[ ]?({STRING}|null)([ ]?,[ ]?"age"[ ]?:[ ]?({INTEGER}|null))?([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?|([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?[ ]?"age"[ ]?:[ ]?({INTEGER}|null)([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?|([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?([ ]?"age"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?[ ]?\\}}',
-        #     [
-        #         ('{ "name" : "Player" }', True),
-        #         ('{ "name" : "Player", "age" : 10, "strength" : 10 }', True),
-        #         ('{ "age" : 10, "strength" : 10 }', True),
-        #         ("{ }", True),
-        #     ],
-        # ),
+        # Schema with a reference
+        (
+            {
+                "title": "User",
+                "type": "object",
+                "properties": {
+                    "user_id": {"title": "User Id", "type": "integer"},
+                    "name": {"title": "Name", "type": "string"},
+                    "a": {"$ref": "#/properties/name"},
+                },
+                "required": ["user_id", "name", "a"],
+            },
+            f'\\{{[ ]?"user_id"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"a"[ ]?:[ ]?{STRING}[ ]?\\}}',
+            [('{"user_id": 100, "name": "John", "a": "Marc"}', True)],
+        ),
+        (
+            {
+                "title": "User",
+                "type": "object",
+                "$defs": {"name": {"title": "Name2", "type": "string"}},
+                "properties": {
+                    "user_id": {"title": "User Id", "type": "integer"},
+                    "name": {"title": "Name", "type": "string"},
+                    "name2": {"$ref": "#/$defs/name"},
+                },
+                "required": ["user_id", "name", "name2"],
+            },
+            f'\\{{[ ]?"user_id"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"name2"[ ]?:[ ]?{STRING}[ ]?\\}}',
+            [('{"user_id": 100, "name": "John", "name2": "Marc"}', True)],
+        ),
+        (
+            {
+                "$id": "customer",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "title": "Customer",
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "last_name": {"type": "string"},
+                    "address": {"$ref": "customer#/$defs/address"},
+                },
+                "required": [
+                    "name",
+                    "first_name",
+                    "last_name",
+                    "address",
+                    "shipping_address",
+                    "billing_address",
+                ],
+                "$defs": {
+                    "address": {
+                        "title": "Address",
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                            "city": {"type": "string"},
+                        },
+                        "required": ["street_address", "city", "state"],
+                        "definitions": {
+                            "state": {
+                                "type": "object",
+                                "title": "State",
+                                "properties": {"name": {"type": "string"}},
+                                "required": ["name"],
+                            }
+                        },
+                    }
+                },
+            },
+            f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"last_name"[ ]?:[ ]?{STRING}[ ]?,[ ]?"address"[ ]?:[ ]?\\{{[ ]?"city"[ ]?:[ ]?{STRING}[ ]?\\}}[ ]?\\}}',
+            [
+                (
+                    '{"name": "John", "last_name": "Doe", "address": {"city": "Paris"}}',
+                    True,
+                )
+            ],
+        ),
+        # Optional properties
+        # Last required property in first position
+        (
+            {
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                    "weapon": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                },
+                "required": ["name"],
+                "title": "Character",
+                "type": "object",
+            },
+            f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}([ ]?,[ ]?"age"[ ]?:[ ]?({INTEGER}|null))?([ ]?,[ ]?"weapon"[ ]?:[ ]?({STRING}|null))?[ ]?\\}}',
+            [
+                ('{ "name" : "Player" }', True),
+                ('{ "name" : "Player", "weapon" : "sword" }', True),
+                ('{ "age" : 10, "weapon" : "sword" }', False),
+            ],
+        ),
+        # Last required property in middle position
+        (
+            {
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                    "weapon": {"type": "string"},
+                    "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                },
+                "required": ["name", "weapon"],
+                "title": "Character",
+                "type": "object",
+            },
+            f'\\{{[ ]?"name"[ ]?:[ ]?{STRING}[ ]?,([ ]?"age"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"weapon"[ ]?:[ ]?{STRING}([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?[ ]?\\}}',
+            [
+                ('{ "name" : "Player" , "weapon" : "sword" }', True),
+                (
+                    '{ "name" : "Player", "age" : 10, "weapon" : "sword" , "strength" : 10 }',
+                    True,
+                ),
+                ('{ "weapon" : "sword" }', False),
+            ],
+        ),
+        # Last required property in last position
+        (
+            {
+                "properties": {
+                    "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "age": {"type": "integer"},
+                    "armor": {"type": "string"},
+                    "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                    "weapon": {"title": "Weapon", "type": "string"},
+                },
+                "required": ["age", "armor", "weapon"],
+                "title": "Character",
+                "type": "object",
+            },
+            f'\\{{([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?[ ]?"age"[ ]?:[ ]?{INTEGER}[ ]?,[ ]?"armor"[ ]?:[ ]?{STRING}[ ]?,([ ]?"strength"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"weapon"[ ]?:[ ]?{STRING}[ ]?\\}}',
+            [
+                (
+                    '{ "name" : "Player", "age" : 10, "armor" : "plate", "strength" : 11, "weapon" : "sword" }',
+                    True,
+                ),
+                ('{ "age" : 10, "armor" : "plate", "weapon" : "sword" }', True),
+                (
+                    '{ "name" : "Kahlhanbeh", "armor" : "plate", "weapon" : "sword" }',
+                    False,
+                ),
+            ],
+        ),
+        # All properties are optional
+        (
+            {
+                "properties": {
+                    "name": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "age": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                    "strength": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                },
+                "title": "Character",
+                "type": "object",
+            },
+            f'\\{{([ ]?"name"[ ]?:[ ]?({STRING}|null)([ ]?,[ ]?"age"[ ]?:[ ]?({INTEGER}|null))?([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?|([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?[ ]?"age"[ ]?:[ ]?({INTEGER}|null)([ ]?,[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?|([ ]?"name"[ ]?:[ ]?({STRING}|null)[ ]?,)?([ ]?"age"[ ]?:[ ]?({INTEGER}|null)[ ]?,)?[ ]?"strength"[ ]?:[ ]?({INTEGER}|null))?[ ]?\\}}',
+            [
+                ('{ "name" : "Player" }', True),
+                ('{ "name" : "Player", "age" : 10, "strength" : 10 }', True),
+                ('{ "age" : 10, "strength" : 10 }', True),
+                ("{ }", True),
+            ],
+        ),
     ],
 )
 def test_match(schema, regex, examples):

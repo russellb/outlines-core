@@ -98,8 +98,15 @@ impl<T> SimpleParser<T> {
     }
 
     pub fn static_b(&mut self, expected: &str) -> bool {
-        if self.data[self.index..].starts_with(expected) {
-            self.index += expected.len();
+        let len = expected.len();
+        let end = if self.index + len > self.data.len() {
+            self.data.len()
+        } else {
+            self.index + len
+        };
+        let value = &self.data[self.index..end];
+        if value == expected {
+            self.index += len;
             true
         } else {
             self.expected
