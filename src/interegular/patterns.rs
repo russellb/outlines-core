@@ -309,7 +309,6 @@ impl RegexElement {
         }
     }
 
-    #[must_use]
     pub fn get_alphabet<T: SymbolTrait + std::cmp::Ord>(
         &self,
         flags: &BTreeSet<Flag>,
@@ -445,9 +444,40 @@ impl RegexElement {
         }
     }
 
-    #[must_use]
-    pub fn simplify(&self) -> Rc<RegexElement> {
-        Rc::new(self.clone())
+    pub fn simplify(&self) -> RegexElement {
+        match self {
+            RegexElement::Alternation(options) => {
+                if options.len() == 1 {
+                    let o = &options[0];
+                    if let RegexElement::Concatenation(parts) = o {
+                        // must be len 1 and an alternation
+                        if parts.len() == 1 {
+                            if let RegexElement::Alternation(_options) = &parts[0] {
+                                return parts[0].simplify();
+                            }
+                        }
+                    }
+                }
+                let mut new_options = vec![];
+                for option in options {
+                    new_options.push(option.simplify());
+                }
+                RegexElement::Alternation(new_options)
+            }
+            RegexElement::Repeated { element, min, max } => RegexElement::Repeated {
+                element: Box::new(element.simplify()),
+                min: *min,
+                max: max.clone(),
+            },
+            RegexElement::Concatenation(parts) => {
+                let mut new_parts = vec![];
+                for part in parts {
+                    new_parts.push(part.simplify());
+                }
+                self.clone()
+            }
+            _ => self.clone(),
+        }
     }
 
     #[must_use]
@@ -703,7 +733,9 @@ impl<'a> ParsePattern<'a> {
             let end = if self.parser.static_b("\\") {
                 self.escaped(true)?
             } else if self.parser.peek_static("]") {
-                _combine_char_groups(
+                // this case we have `X-]` which needs to include the `-` in
+                // the group since it's not a range
+                return Ok(_combine_char_groups(
                     &[
                         base_copy?,
                         RegexElement::CharGroup {
@@ -712,7 +744,7 @@ impl<'a> ParsePattern<'a> {
                         },
                     ],
                     false,
-                )
+                ));
             } else {
                 let c = self.parser.any_but(&SPECIAL_CHARS_INNER, 1)?;
                 RegexElement::CharGroup {
@@ -839,8 +871,10 @@ impl<'a> ParsePattern<'a> {
 
 pub fn parse_pattern(pattern: &str) -> Result<RegexElement, super::simple_parser::NoMatch> {
     let mut parser = ParsePattern::new(pattern);
-
-    parser.parse()
+    match parser.parse() {
+        Ok(raw_result) => Ok(raw_result.simplify()),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn parse_pattern_to_fms(pattern: &str) -> Fsm<char> {
@@ -1158,6 +1192,166 @@ mod tests {
         let pattern = ")(";
         let result = parse_pattern(pattern);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_pattern_enum_string() {
+        let pattern = "(\"Marc\"|\"Jean\")";
+        let result = parse_pattern(pattern);
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![
+                    RegexElement::Literal('"',),
+                    RegexElement::Literal('M',),
+                    RegexElement::Literal('a',),
+                    RegexElement::Literal('r',),
+                    RegexElement::Literal('c',),
+                    RegexElement::Literal('"',),
+                ]),
+                RegexElement::Concatenation(vec![
+                    RegexElement::Literal('"',),
+                    RegexElement::Literal('J',),
+                    RegexElement::Literal('e',),
+                    RegexElement::Literal('a',),
+                    RegexElement::Literal('n',),
+                    RegexElement::Literal('"',),
+                ]),
+            ]))
+        )
+    }
+
+    #[test]
+    fn test_parse_pattern_enum_char() {
+        let pattern = "(A|B)";
+        let result = parse_pattern(pattern);
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![RegexElement::Literal('A'),]),
+                RegexElement::Concatenation(vec![RegexElement::Literal('B'),]),
+            ]))
+        )
+    }
+
+    #[test]
+    fn test_parse_pattern_null() {
+        let pattern = "null";
+        let result = parse_pattern(pattern);
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![
+                    RegexElement::Literal('n'),
+                    RegexElement::Literal('u'),
+                    RegexElement::Literal('l'),
+                    RegexElement::Literal('l'),
+                ]),
+            ]))
+        )
+    }
+
+    #[test]
+    fn test_parse_pattern_number() {
+        let pattern = "((-)?(0|[1-9][0-9]*))(\\.[0-9]+)?([eE][+-][0-9]+)?";
+        let result = parse_pattern(pattern);
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![
+                    RegexElement::Alternation(vec![RegexElement::Concatenation(vec![
+                        RegexElement::Repeated {
+                            element: Box::new(RegexElement::Alternation(vec![
+                                RegexElement::Concatenation(vec![RegexElement::Literal('-',),],)
+                            ])),
+                            min: 0,
+                            max: Some(1,),
+                        },
+                        RegexElement::Alternation(vec![
+                            RegexElement::Concatenation(vec![RegexElement::Literal('0')]),
+                            RegexElement::Concatenation(vec![
+                                RegexElement::CharGroup {
+                                    chars: BTreeSet::from([
+                                        '1', '2', '3', '4', '5', '6', '7', '8', '9'
+                                    ]),
+                                    inverted: false,
+                                },
+                                RegexElement::Repeated {
+                                    element: Box::new(RegexElement::CharGroup {
+                                        chars: BTreeSet::from([
+                                            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                        ]),
+                                        inverted: false,
+                                    }),
+                                    min: 0,
+                                    max: None,
+                                },
+                            ]),
+                        ]),
+                    ])]),
+                    RegexElement::Repeated {
+                        element: Box::new(RegexElement::Alternation(vec![
+                            RegexElement::Concatenation(vec![
+                                RegexElement::CharGroup {
+                                    chars: BTreeSet::from(['.',]),
+                                    inverted: false,
+                                },
+                                RegexElement::Repeated {
+                                    element: Box::new(RegexElement::CharGroup {
+                                        chars: BTreeSet::from([
+                                            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                        ]),
+                                        inverted: false,
+                                    }),
+                                    min: 1,
+                                    max: None,
+                                },
+                            ],),
+                        ],)),
+                        min: 0,
+                        max: Some(1,),
+                    },
+                    RegexElement::Repeated {
+                        element: Box::new(RegexElement::Alternation(vec![
+                            RegexElement::Concatenation(vec![
+                                RegexElement::CharGroup {
+                                    chars: BTreeSet::from(['E', 'e',]),
+                                    inverted: false,
+                                },
+                                RegexElement::CharGroup {
+                                    chars: BTreeSet::from(['+', '-',]),
+                                    inverted: false,
+                                },
+                                RegexElement::Repeated {
+                                    element: Box::new(RegexElement::CharGroup {
+                                        chars: BTreeSet::from([
+                                            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                        ]),
+                                        inverted: false,
+                                    }),
+                                    min: 1,
+                                    max: None,
+                                },
+                            ]),
+                        ])),
+                        min: 0,
+                        max: Some(1,),
+                    },
+                ],),
+            ],),)
+        )
+    }
+
+    #[test]
+    fn test_parse_pattern_literal_digit() {
+        let pattern = "0";
+        let result = parse_pattern(pattern);
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![RegexElement::Literal('0')]),
+            ]))
+        )
     }
 
     #[test]
