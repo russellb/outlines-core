@@ -509,24 +509,24 @@ def deep_compare(pattern1, pattern2):
                 ),
             ],
         ),
-        # # oneOf
-        # (
-        #     {
-        #         "title": "Foo",
-        #         "oneOf": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}],
-        #     },
-        #     rf'((?:"{STRING_INNER}*")|(?:{NUMBER})|(?:{BOOLEAN}))',
-        #     [
-        #         ("12.3", True),
-        #         ("true", True),
-        #         ('"a"', True),
-        #         ("null", False),
-        #         ("", False),
-        #         ("12true", False),
-        #         ('1.3"a"', False),
-        #         ('12.3true"a"', False),
-        #     ],
-        # ),
+        # oneOf
+        (
+            {
+                "title": "Foo",
+                "oneOf": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}],
+            },
+            rf'((?:"{STRING_INNER}*")|(?:{NUMBER})|(?:{BOOLEAN}))',
+            [
+                ("12.3", True),
+                ("true", True),
+                ('"a"', True),
+                ("null", False),
+                ("", False),
+                ("12true", False),
+                ('1.3"a"', False),
+                ('12.3true"a"', False),
+            ],
+        ),
         # anyOf
         (
             {

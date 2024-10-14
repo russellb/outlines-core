@@ -475,7 +475,7 @@ impl RegexElement {
                 for part in parts {
                     new_parts.push(part.simplify());
                 }
-                self.clone()
+                RegexElement::Concatenation(new_parts)
             }
             _ => self.clone(),
         }
@@ -635,6 +635,10 @@ impl<'a> ParsePattern<'a> {
             };
 
             // TODO: missing cases
+        } else if c == ":" {
+            let p = self.pattern().unwrap();
+            self.parser.static_b(")");
+            return self.repetition(p);
         }
         unimplemented!("Missing cases")
     }
@@ -1551,6 +1555,192 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_pattern_one_of_string_number_boolean() {
+        let pattern = "((?:\"([^\"\\\\\\x00-\\x1F\\x7F-\\x9F]|\\\\[\"\\\\])*\")|(?:((-)?(0|[1-9][0-9]*))(\\.[0-9]+)?([eE][+-][0-9]+)?)|(?:(true|false)))";
+        let result = parse_pattern(pattern);
+        println!("\n\n\n\ntest");
+        assert_eq!(
+            result,
+            Ok(RegexElement::Alternation(vec![
+                RegexElement::Concatenation(vec![RegexElement::Alternation(vec![
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['"']),
+                            inverted: false,
+                        },
+                        RegexElement::Repeated {
+                            element: Box::new(RegexElement::Alternation(vec![
+                                RegexElement::Concatenation(vec![RegexElement::CharGroup {
+                                    chars: BTreeSet::from([
+                                        '\0', '\u{1}', '\u{2}', '\u{3}', '\u{4}', '\u{5}', '\u{6}',
+                                        '\u{7}', '\u{8}', '\t', '\n', '\u{b}', '\u{c}', '\r',
+                                        '\u{e}', '\u{f}', '\u{10}', '\u{11}', '\u{12}', '\u{13}',
+                                        '\u{14}', '\u{15}', '\u{16}', '\u{17}', '\u{18}', '\u{19}',
+                                        '\u{1a}', '\u{1b}', '\u{1c}', '\u{1d}', '\u{1e}', '\u{1f}',
+                                        '"', '\\', '\u{7f}', '\u{80}', '\u{81}', '\u{82}',
+                                        '\u{83}', '\u{84}', '\u{85}', '\u{86}', '\u{87}', '\u{88}',
+                                        '\u{89}', '\u{8a}', '\u{8b}', '\u{8c}', '\u{8d}', '\u{8e}',
+                                        '\u{8f}', '\u{90}', '\u{91}', '\u{92}', '\u{93}', '\u{94}',
+                                        '\u{95}', '\u{96}', '\u{97}', '\u{98}', '\u{99}', '\u{9a}',
+                                        '\u{9b}', '\u{9c}', '\u{9d}', '\u{9e}', '\u{9f}',
+                                    ]),
+                                    inverted: true,
+                                },]),
+                                RegexElement::Concatenation(vec![
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['\\']),
+                                        inverted: false
+                                    },
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['"', '\\']),
+                                        inverted: false
+                                    }
+                                ])
+                            ])),
+                            min: 0,
+                            max: None
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['"']),
+                            inverted: false
+                        }
+                    ]),
+                ]),]),
+                RegexElement::Concatenation(vec![RegexElement::Alternation(vec![
+                    RegexElement::Concatenation(vec![
+                        RegexElement::Alternation(vec![RegexElement::Concatenation(vec![
+                            RegexElement::Repeated {
+                                element: Box::new(RegexElement::Alternation(vec![
+                                    RegexElement::Concatenation(vec![RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['-',]),
+                                        inverted: false,
+                                    },]),
+                                ])),
+                                min: 0,
+                                max: Some(1),
+                            },
+                            RegexElement::Alternation(vec![
+                                RegexElement::Concatenation(vec![RegexElement::CharGroup {
+                                    chars: BTreeSet::from(['0']),
+                                    inverted: false,
+                                },]),
+                                RegexElement::Concatenation(vec![
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from([
+                                            '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                        ]),
+                                        inverted: false,
+                                    },
+                                    RegexElement::Repeated {
+                                        element: Box::new(RegexElement::CharGroup {
+                                            chars: BTreeSet::from([
+                                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                            ]),
+                                            inverted: false,
+                                        }),
+                                        min: 0,
+                                        max: None,
+                                    },
+                                ]),
+                            ]),
+                        ]),]),
+                        RegexElement::Repeated {
+                            element: Box::new(RegexElement::Alternation(vec![
+                                RegexElement::Concatenation(vec![
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['.']),
+                                        inverted: false,
+                                    },
+                                    RegexElement::Repeated {
+                                        element: Box::new(RegexElement::CharGroup {
+                                            chars: BTreeSet::from([
+                                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                            ]),
+                                            inverted: false,
+                                        }),
+                                        min: 1,
+                                        max: None,
+                                    },
+                                ]),
+                            ])),
+                            min: 0,
+                            max: Some(1),
+                        },
+                        RegexElement::Repeated {
+                            element: Box::new(RegexElement::Alternation(vec![
+                                RegexElement::Concatenation(vec![
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['E', 'e']),
+                                        inverted: false,
+                                    },
+                                    RegexElement::CharGroup {
+                                        chars: BTreeSet::from(['+', '-']),
+                                        inverted: false,
+                                    },
+                                    RegexElement::Repeated {
+                                        element: Box::new(RegexElement::CharGroup {
+                                            chars: BTreeSet::from([
+                                                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                            ]),
+                                            inverted: false,
+                                        }),
+                                        min: 1,
+                                        max: None,
+                                    },
+                                ]),
+                            ])),
+                            min: 0,
+                            max: Some(1),
+                        },
+                    ]),
+                ])]),
+                RegexElement::Concatenation(vec![RegexElement::Alternation(vec![
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['t']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['r']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['u']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['e']),
+                            inverted: false,
+                        },
+                    ]),
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['f']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['a']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['l']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['s']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['e']),
+                            inverted: false,
+                        },
+                    ]),
+                ])])
+            ]))
+        )
+    }
+
+    #[test]
     fn test_parse_pattern_literal_digit() {
         let pattern = "0";
         let result = parse_pattern(pattern);
@@ -2024,5 +2214,75 @@ mod tests {
             assert_eq!(fsm.finals, expected.finals);
             assert_eq!(fsm.map, expected.map);
         }
+    }
+
+    #[test]
+    fn test_simplify_pattern() {
+        let tree = RegexElement::Alternation(vec![RegexElement::Concatenation(vec![
+            RegexElement::CharGroup {
+                chars: BTreeSet::from(['a']),
+                inverted: false,
+            },
+            RegexElement::Alternation(vec![RegexElement::Concatenation(vec![
+                RegexElement::Alternation(vec![
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['B']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['C']),
+                            inverted: false,
+                        },
+                    ]),
+                    //
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['D']),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['E']),
+                            inverted: false,
+                        },
+                    ]),
+                ]),
+            ])]),
+        ])]);
+        let simplified = tree.simplify();
+
+        assert_eq!(
+            simplified,
+            RegexElement::Alternation(vec![RegexElement::Concatenation(vec![
+                RegexElement::CharGroup {
+                    chars: BTreeSet::from(['a']),
+                    inverted: false,
+                },
+                RegexElement::Alternation(vec![
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['B',]),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['C',]),
+                            inverted: false,
+                        },
+                    ],),
+                    RegexElement::Concatenation(vec![
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['D',]),
+                            inverted: false,
+                        },
+                        RegexElement::CharGroup {
+                            chars: BTreeSet::from(['E',]),
+                            inverted: false,
+                        },
+                    ],),
+                ],),
+            ],),],)
+        );
+
+        // assert!(false);
     }
 }
