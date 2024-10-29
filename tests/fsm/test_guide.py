@@ -59,7 +59,15 @@ def test_from_regex():
     tokenizer = MockTokenizer()
     fsm = RegexGuide.from_regex(regex_str, tokenizer)
 
-    assert fsm.states_to_token_maps == {0: {1: 1}}
+    assert fsm.get_index_dict() == {0: {1: 1}}
+
+    instruction = fsm.get_next_instruction(-1)
+    assert isinstance(instruction, Write)
+    assert_expected_tensor_ids(instruction.tokens, [3])
+
+    instruction = fsm.get_next_instruction(3)
+    assert isinstance(instruction, Write)
+    assert_expected_tensor_ids(instruction.tokens, [3])
 
     instruction = fsm.get_next_instruction(0)
     assert isinstance(instruction, Generate)
@@ -69,9 +77,6 @@ def test_from_regex():
     assert fsm.get_next_state(state=0, token_id=tokenizer.eos_token_id) == -1
 
     assert fsm.is_final_state(0) is False
-
-    for state in fsm.final_states:
-        assert fsm.is_final_state(state) is True
 
 
 def test_from_fsm():
@@ -89,7 +94,7 @@ def test_from_fsm():
         interegular.parse_pattern(regex_str).to_fsm(), tokenizer
     )
 
-    assert fsm.states_to_token_maps == {0: {1: 1}}
+    assert fsm.get_index_dict() == {0: {1: 1}}
 
     instruction = fsm.get_next_instruction(0)
     assert isinstance(instruction, Generate)
@@ -99,9 +104,6 @@ def test_from_fsm():
     assert fsm.get_next_state(state=0, token_id=tokenizer.eos_token_id) == -1
 
     assert fsm.is_final_state(0) is False
-
-    for state in fsm.final_states:
-        assert fsm.is_final_state(state) is True
 
 
 def test_regex_multi_byte_llama_like():
@@ -130,7 +132,7 @@ def test_regex_multi_byte_llama_like():
     tokenizer = MockTokenizer()
     fsm = RegexGuide.from_regex(regex_str, tokenizer)
 
-    assert fsm.states_to_token_maps == {
+    assert fsm.get_index_dict() == {
         0: {5: 1, 4: 2},
         1: {6: 3},
         3: {7: 4},
@@ -145,9 +147,6 @@ def test_regex_multi_byte_llama_like():
     assert fsm.get_next_state(state=0, token_id=tokenizer.eos_token_id) == -1
 
     assert fsm.is_final_state(0) is False
-
-    for state in fsm.final_states:
-        assert fsm.is_final_state(state) is True
 
 
 def test_regex_multi_byte_gpt2_like():
@@ -177,7 +176,7 @@ def test_regex_multi_byte_gpt2_like():
     tokenizer = MockTokenizer()
     fsm = RegexGuide.from_regex(regex_str, tokenizer)
 
-    assert fsm.states_to_token_maps == {
+    assert fsm.get_index_dict() == {
         0: {5: 1, 10: 2},
         1: {8: 5, 4: 3},
         2: {11: 3},
@@ -192,9 +191,6 @@ def test_regex_multi_byte_gpt2_like():
     assert fsm.get_next_state(state=0, token_id=tokenizer.eos_token_id) == -1
 
     assert fsm.is_final_state(0) is False
-
-    for state in fsm.final_states:
-        assert fsm.is_final_state(state) is True
 
 
 def test_regex_final_state():
