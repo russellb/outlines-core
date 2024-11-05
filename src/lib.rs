@@ -5,6 +5,8 @@ pub mod primitives;
 pub mod regex;
 pub mod vocabulary;
 
+mod locator;
+
 #[cfg(feature = "python-bindings")]
 mod python_bindings;
 
