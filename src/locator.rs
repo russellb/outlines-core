@@ -72,7 +72,7 @@ struct Content {
     content: String,
 }
 
-/// Kind of the json field which will be checked for eos token id.
+/// Which part in config's json to check for eos token id.
 enum EosTokenField {
     Id,
     Value,
@@ -88,6 +88,7 @@ struct EosTokenLocation {
 pub(crate) struct EosTokenLocator;
 
 impl EosTokenLocator {
+    /// Locates eos token id by searching in defined common locations.
     pub(crate) fn locate(
         model: &str,
         tokenizer: &Tokenizer,
