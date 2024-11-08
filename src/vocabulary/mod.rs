@@ -3,10 +3,14 @@ use std::collections::HashMap;
 use tokenizers::normalizers::Sequence;
 use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 
-use crate::locator::EosTokenLocator;
 use crate::prelude::*;
-use crate::processor::TokenProcessor;
 use crate::VocabularyError;
+
+use locator::EosTokenLocator;
+use processor::TokenProcessor;
+
+mod locator;
+mod processor;
 
 /// Vocabulary of an LLM.
 ///
