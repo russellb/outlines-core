@@ -194,7 +194,7 @@ impl TokenProcessor {
         }
     }
 
-    /// Process each token based on the level ofTokenProcesso.
+    /// Process each token based on the level of `TokenProcessor`.
     pub(crate) fn process(&self, token: String) -> Result<Vec<u8>> {
         match &self.level {
             TokenProcessorLevel::Byte => {
@@ -310,6 +310,46 @@ mod tests {
         ] {
             let processed = processor.process(input.to_string()).expect("Not processed");
             assert_eq!(processed, expected);
+        }
+    }
+
+    #[test]
+    fn unsupported_tokenizer_error() {
+        let model = "hf-internal-testing/tiny-random-XLMRobertaXLForCausalLM";
+        let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
+
+        let result = TokenProcessor::new(&tokenizer);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(e, TokenProcessorError::UnsupportedTokenizer)
+        }
+    }
+
+    #[test]
+    fn byte_processor_error() {
+        let model = "openai-community/gpt2";
+        let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
+        let processor = TokenProcessor::new(&tokenizer).expect("Processor failed");
+
+        for token in ["𝒜𝒷𝒸𝒟𝓔", "🦄🌈🌍🔥🎉", "京东购物"] {
+            let result = processor.process(token.to_string());
+            assert!(result.is_err());
+            if let Err(e) = result {
+                assert_eq!(e, TokenProcessorError::ByteProcessorFailed)
+            }
+        }
+    }
+
+    #[test]
+    fn byte_fallback_processor_error() {
+        let model = "hf-internal-testing/llama-tokenizer";
+        let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
+        let processor = TokenProcessor::new(&tokenizer).expect("Processor failed");
+
+        let result = processor.process("<0x6y>".to_string());
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(e, TokenProcessorError::ByteFallbackProcessorFailed)
         }
     }
 }

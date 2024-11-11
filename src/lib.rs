@@ -10,18 +10,28 @@ mod python_bindings;
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum Error {
     #[error("The vocabulary does not allow us to build a sequence that matches the input")]
     IndexError,
 }
 
 #[derive(Error, Debug)]
+#[error("Tokenizer error")]
+pub struct TokenizerError(tokenizers::Error);
+
+impl PartialEq for TokenizerError {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_string() == other.0.to_string()
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
 pub enum VocabularyError {
     #[error("Unable to create tokenizer for {model}, source {source}")]
     UnableToCreateTokenizer {
         model: String,
-        source: tokenizers::Error,
+        source: TokenizerError,
     },
     #[error("Unable to locate EOS token for {model}")]
     UnableToLocateEosTokenId { model: String },
@@ -29,7 +39,7 @@ pub enum VocabularyError {
     TokenProcessorError(#[from] TokenProcessorError),
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum TokenProcessorError {
     #[error("Tokenizer is not supported")]
     UnsupportedTokenizer,

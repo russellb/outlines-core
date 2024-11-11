@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use tokenizers::normalizers::Sequence;
 use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 
-use crate::prelude::*;
-use crate::VocabularyError;
+use crate::{prelude::*, TokenizerError, VocabularyError};
 
 use locator::EosTokenLocator;
 use processor::TokenProcessor;
@@ -50,7 +49,7 @@ impl Vocabulary {
             Tokenizer::from_pretrained(model, parameters.clone()).map_err(|error| {
                 VocabularyError::UnableToCreateTokenizer {
                     model: model.to_string(),
-                    source: error,
+                    source: TokenizerError(error),
                 }
             })?;
         Self::filter_normalizers(&mut tokenizer);
@@ -302,6 +301,66 @@ mod tests {
                     .id_to_token(*v_id)
                     .expect("Token id not found in tokenizer");
                 assert_eq!(&t_token, t_token_expected);
+            }
+        }
+    }
+
+    #[test]
+    fn token_processor_error() {
+        let model = "hf-internal-testing/tiny-random-XLMRobertaXLForCausalLM";
+        let vocabulary = Vocabulary::from_pretrained(model, None);
+
+        assert!(vocabulary.is_err());
+        if let Err(e) = vocabulary {
+            assert_eq!(
+                e,
+                VocabularyError::TokenProcessorError(
+                    crate::TokenProcessorError::UnsupportedTokenizer
+                )
+            )
+        }
+    }
+
+    #[test]
+    fn tokenizer_error() {
+        let model = "hf-internal-testing/some-non-existent-model";
+        let vocabulary = Vocabulary::from_pretrained(model, None);
+
+        assert!(vocabulary.is_err());
+        if let Err(VocabularyError::UnableToCreateTokenizer { model, source }) = vocabulary {
+            assert_eq!(model, model.to_string());
+            assert_eq!(source.to_string(), "Tokenizer error".to_string());
+        }
+    }
+
+    #[test]
+    fn prepend_normalizers_filtered_out() {
+        use tokenizers::normalizers::{Prepend, Sequence};
+
+        let prepend = Prepend::new("_".to_string());
+        let prepend_normalizer = NormalizerWrapper::Prepend(prepend);
+        let sequence = Sequence::new(vec![prepend_normalizer.clone()]);
+        let sequence_normalizer = NormalizerWrapper::Sequence(sequence);
+
+        let model = "hf-internal-testing/llama-tokenizer";
+        let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
+
+        for normalizer in [prepend_normalizer, sequence_normalizer] {
+            let mut normalized_t = tokenizer.clone();
+            normalized_t.with_normalizer(Some(normalizer));
+            Vocabulary::filter_normalizers(&mut normalized_t);
+            if let Some(n) = normalized_t.get_normalizer() {
+                match n {
+                    NormalizerWrapper::Sequence(seq) => {
+                        for n in seq.get_normalizers() {
+                            if let NormalizerWrapper::Prepend(_) = n {
+                                unreachable!()
+                            }
+                        }
+                    }
+                    NormalizerWrapper::Prepend(_) => unreachable!(),
+                    _ => {}
+                }
             }
         }
     }
