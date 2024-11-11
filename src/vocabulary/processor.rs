@@ -7,11 +7,12 @@ use tokenizers::{DecoderWrapper, Tokenizer};
 
 use crate::TokenProcessorError;
 
-pub type Result<T, E = TokenProcessorError> = std::result::Result<T, E>;
+type Result<T, E = TokenProcessorError> = std::result::Result<T, E>;
 
 /// GPT2-like tokenizers have multibyte tokens that can have a mix of full and incomplete
-/// utf-8 characters. For example, b` \xf0` can be one token. These tokenizers map each
-/// byte to a valid UTF-8 character. And we need to map back those characters into bytes.
+/// UTF-8 characters, for example, byte ` \xf0` can be one token. These tokenizers map each
+/// byte to a valid UTF-8 character, `TokenProcessor` of `ByteFallback` level will be used
+/// to map back these type of characters into bytes, based on `CHAR_MAP`.
 ///
 /// "ĠO" = [U+0120, U+004F] should be interpreted as [0x20, 0x4F] = " O"
 /// or
@@ -84,9 +85,9 @@ pub(crate) struct TokenProcessor {
     level: TokenProcessorLevel,
 }
 
-/// Recognized tokenizer's levels.
+/// Recognizes different tokenizer's levels.
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenProcessorLevel {
+pub(crate) enum TokenProcessorLevel {
     /// Matches byte level tokenizer (e.g., gpt2).
     Byte,
     /// Matches byte fallback tokenizer (e.g., llama), which have <0x__> tokens for
@@ -103,9 +104,9 @@ impl std::fmt::Display for TokenProcessorLevel {
     }
 }
 
-/// Modifications to be applied by `ByteFallback` `TokenProcessorLevel`.
+/// Modifications to be applied by `TokenProcessor`of `ByteFallback` level.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Mods {
+pub(crate) struct Mods {
     spacechar: char,
 }
 
@@ -120,6 +121,7 @@ impl Mods {
     }
 }
 
+/// Local structure to be deserialized into from HF's `ReplaceDecoder` in order to get a replace pattern.
 #[derive(Debug, Deserialize)]
 struct ReplaceDecoder {
     content: String,
@@ -147,7 +149,7 @@ impl ReplaceDecoder {
 }
 
 #[derive(Debug, Deserialize)]
-pub enum ReplacePattern {
+enum ReplacePattern {
     String(String),
 }
 
@@ -194,7 +196,7 @@ impl TokenProcessor {
         }
     }
 
-    /// Process each token based on the level of `TokenProcessor`.
+    /// Operates on each token based on the level of `TokenProcessor`.
     pub(crate) fn process(&self, token: String) -> Result<Vec<u8>> {
         match &self.level {
             TokenProcessorLevel::Byte => {
@@ -222,7 +224,8 @@ impl TokenProcessor {
         }
     }
 
-    /// Since all fields of `Replace` are private with no getters, we'll have to unpack it into our own.
+    /// Since all fields of HF's `Replace` are private with no getters, it needs to be unpacked
+    /// into local `ReplaceDecoder` structure.
     fn unpack_decoder(decoder: &Replace) -> Result<ReplaceDecoder> {
         match serde_json::to_value(decoder) {
             Err(_) => Err(TokenProcessorError::DecoderUnpackingFailed),

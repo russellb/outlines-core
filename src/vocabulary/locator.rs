@@ -52,16 +52,20 @@ const COMMON_LOCATIONS: &[EosTokenLocation] = &[
     },
 ];
 
+/// `Id` kind of `EosTokenField`, when `eos_token_id` provided as an id.
 #[derive(Debug, Serialize, Deserialize)]
 struct Id {
     eos_token_id: u64,
 }
 
+/// `Value` kind of `EosTokenField`, when `eos_token` provided as a text, so that its id
+/// will be fetched from the tokenizer.
 #[derive(Debug, Serialize, Deserialize)]
 struct Value {
     eos_token: String,
 }
 
+/// `Object` kind of `EosTokenField`, when `eos_token` provided as a `Content`.
 #[derive(Debug, Serialize, Deserialize)]
 struct Object {
     eos_token: Content,
@@ -72,14 +76,14 @@ struct Content {
     content: String,
 }
 
-/// Which part in config's json to check for eos token id.
+/// Specifies in which part in config's json to check for eos token id.
 enum EosTokenField {
     Id,
     Value,
     Object,
 }
 
-/// Location of the end of sentence token id in a config file.
+/// Defines location of the end of sentence token id in the config file.
 struct EosTokenLocation {
     file: &'static str,
     location: EosTokenField,
@@ -101,7 +105,7 @@ impl EosTokenLocator {
 }
 
 impl EosTokenLocation {
-    /// Finds eos token within defined location in related config file.
+    /// Finds eos token within defined location in a related config file.
     fn lookup(
         &self,
         model: &str,
@@ -127,7 +131,7 @@ impl EosTokenLocation {
         }
     }
 
-    /// Downloads a config file from Hugging Face Hub.
+    /// Downloads related config file from Hugging Face Hub.
     fn download_config(
         project: &str,
         file: &str,

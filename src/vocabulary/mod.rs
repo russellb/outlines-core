@@ -52,7 +52,7 @@ impl Vocabulary {
                     source: TokenizerError(error),
                 }
             })?;
-        Self::filter_normalizers(&mut tokenizer);
+        Self::filter_prepend_normalizers(&mut tokenizer);
 
         let eos_token_id = EosTokenLocator::locate(model, &tokenizer, &parameters);
         let Some(eos_token_id) = eos_token_id else {
@@ -64,17 +64,18 @@ impl Vocabulary {
         Vocabulary::try_from((&mut tokenizer, eos_token_id))
     }
 
-    /// Per provided token returns vector of `TokenId`s if available in vocabulary.
+    /// Per provided token returns vector of `TokenId`s if available in the vocabulary.
     pub fn token_to_ids(&self, token: &str) -> Option<&Vec<TokenId>> {
         self.map.get(token)
     }
 
-    /// Gets the identifier of the special end of sentence token.
+    /// Gets the identifier of the special end of the sentence token.
     pub fn eos_token_id(&self) -> Option<TokenId> {
         self.eos_token_id
     }
 
-    fn filter_normalizers(tokenizer: &mut Tokenizer) {
+    /// Filters out `Prepend` kind of tokenizer's normalizers.
+    fn filter_prepend_normalizers(tokenizer: &mut Tokenizer) {
         // Main concern is prepend normalizers, for example https://github.com/google/sentencepiece
         // In `sentencepiece` tokenizer, `▁` is used to denote spaces in the source text,
         // e.g. `Hello World.` could be tokenized as: [Hello] [▁Wor] [ld] [.]
@@ -348,7 +349,7 @@ mod tests {
         for normalizer in [prepend_normalizer, sequence_normalizer] {
             let mut normalized_t = tokenizer.clone();
             normalized_t.with_normalizer(Some(normalizer));
-            Vocabulary::filter_normalizers(&mut normalized_t);
+            Vocabulary::filter_prepend_normalizers(&mut normalized_t);
             if let Some(n) = normalized_t.get_normalizer() {
                 match n {
                     NormalizerWrapper::Sequence(seq) => {
