@@ -80,6 +80,7 @@ filterwarnings = [
     "error",
     "ignore::pydantic.warnings.PydanticDeprecatedSince20",
     "ignore::UserWarning",
+    "ignore::DeprecationWarning",
 ]
 addopts = [
     "--import-mode=importlib"
