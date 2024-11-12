@@ -5,9 +5,7 @@ use serde::Deserialize;
 use tokenizers::normalizers::Replace;
 use tokenizers::{DecoderWrapper, Tokenizer};
 
-use crate::TokenProcessorError;
-
-type Result<T, E = TokenProcessorError> = std::result::Result<T, E>;
+use crate::{Error, Result};
 
 /// GPT2-like tokenizers have multibyte tokens that can have a mix of full and incomplete
 /// UTF-8 characters, for example, byte ` \xf0` can be one token. These tokenizers map each
@@ -157,7 +155,7 @@ impl TokenProcessor {
     /// Create new `TokenProcessor` with the level defined based on tokenizer's decoders.
     pub(crate) fn new(tokenizer: &Tokenizer) -> Result<Self> {
         match tokenizer.get_decoder() {
-            None => Err(TokenProcessorError::UnsupportedTokenizer),
+            None => Err(Error::UnsupportedByTokenProcessor),
             Some(decoder) => match decoder {
                 DecoderWrapper::ByteLevel(_) => Ok(Self {
                     level: TokenProcessorLevel::Byte,
@@ -188,10 +186,10 @@ impl TokenProcessor {
                             level: TokenProcessorLevel::ByteFallback(Mods { spacechar }),
                         })
                     } else {
-                        Err(TokenProcessorError::UnsupportedTokenizer)
+                        Err(Error::UnsupportedByTokenProcessor)
                     }
                 }
-                _ => Err(TokenProcessorError::UnsupportedTokenizer),
+                _ => Err(Error::UnsupportedByTokenProcessor),
             },
         }
     }
@@ -199,23 +197,22 @@ impl TokenProcessor {
     /// Operates on each token based on the level of `TokenProcessor`.
     pub(crate) fn process(&self, token: String) -> Result<Vec<u8>> {
         match &self.level {
-            TokenProcessorLevel::Byte => {
-                let mut bytes = vec![];
-                for char in token.chars() {
-                    match CHAR_MAP.get(&char) {
-                        None => return Err(TokenProcessorError::ByteProcessorFailed),
-                        Some(b) => bytes.push(*b),
-                    }
-                }
-                Ok(bytes)
-            }
+            TokenProcessorLevel::Byte => token
+                .chars()
+                .map(|char| {
+                    CHAR_MAP
+                        .get(&char)
+                        .copied()
+                        .ok_or(Error::ByteProcessorFailed)
+                })
+                .collect(),
             TokenProcessorLevel::ByteFallback(mods) => {
                 // If the token is of form `<0x__>`:
                 if token.len() == 6 && token.starts_with("<0x") && token.ends_with('>') {
                     // Get to a single byte specified in the __ part and parse it in base 16 to a byte.
                     match u8::from_str_radix(&token[3..5], 16) {
                         Ok(byte) => Ok([byte].to_vec()),
-                        Err(_) => Err(TokenProcessorError::ByteFallbackProcessorFailed),
+                        Err(_) => Err(Error::ByteFallbackProcessorFailed),
                     }
                 } else {
                     Ok(mods.apply_default(token).as_bytes().to_vec())
@@ -228,10 +225,10 @@ impl TokenProcessor {
     /// into local `ReplaceDecoder` structure.
     fn unpack_decoder(decoder: &Replace) -> Result<ReplaceDecoder> {
         match serde_json::to_value(decoder) {
-            Err(_) => Err(TokenProcessorError::DecoderUnpackingFailed),
+            Err(_) => Err(Error::DecoderUnpackingFailed),
             Ok(value) => match serde_json::from_value(value) {
                 Ok(d) => Ok(d),
-                Err(_) => Err(TokenProcessorError::DecoderUnpackingFailed),
+                Err(_) => Err(Error::DecoderUnpackingFailed),
             },
         }
     }
@@ -324,7 +321,7 @@ mod tests {
         let result = TokenProcessor::new(&tokenizer);
         assert!(result.is_err());
         if let Err(e) = result {
-            assert_eq!(e, TokenProcessorError::UnsupportedTokenizer)
+            assert_eq!(e, Error::UnsupportedByTokenProcessor)
         }
     }
 
@@ -338,7 +335,7 @@ mod tests {
             let result = processor.process(token.to_string());
             assert!(result.is_err());
             if let Err(e) = result {
-                assert_eq!(e, TokenProcessorError::ByteProcessorFailed)
+                assert_eq!(e, Error::ByteProcessorFailed)
             }
         }
     }
@@ -352,7 +349,7 @@ mod tests {
         let result = processor.process("<0x6y>".to_string());
         assert!(result.is_err());
         if let Err(e) = result {
-            assert_eq!(e, TokenProcessorError::ByteFallbackProcessorFailed)
+            assert_eq!(e, Error::ByteFallbackProcessorFailed)
         }
     }
 }

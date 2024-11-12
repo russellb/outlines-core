@@ -2,9 +2,8 @@
 use crate::prelude::{State, TransitionKey};
 use crate::regex::{get_vocabulary_transition_keys, state_scan_tokens};
 use crate::vocabulary::Vocabulary;
+use crate::{Error, Result};
 use std::collections::{HashMap, HashSet};
-
-pub type Result<T, E = crate::Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub struct FSMInfo {
@@ -101,7 +100,7 @@ impl Index {
                 eos_token_id,
             })
         } else {
-            Err(crate::Error::IndexError)
+            Err(Error::IndexError)
         }
     }
 

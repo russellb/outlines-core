@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use tokenizers::normalizers::Sequence;
 use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 
-use crate::{prelude::*, TokenizerError, VocabularyError};
+use crate::prelude::*;
+use crate::{Error, Result};
 
 use locator::EosTokenLocator;
 use processor::TokenProcessor;
@@ -44,19 +45,18 @@ impl Vocabulary {
     pub fn from_pretrained(
         model: &str,
         parameters: Option<FromPretrainedParameters>,
-    ) -> Result<Self, VocabularyError> {
+    ) -> Result<Self> {
         let mut tokenizer =
-            Tokenizer::from_pretrained(model, parameters.clone()).map_err(|error| {
-                VocabularyError::UnableToCreateTokenizer {
+            Tokenizer::from_pretrained(model, parameters.clone()).map_err(|_| {
+                Error::UnableToCreateTokenizer {
                     model: model.to_string(),
-                    source: TokenizerError(error),
                 }
             })?;
         Self::filter_prepend_normalizers(&mut tokenizer);
 
         let eos_token_id = EosTokenLocator::locate(model, &tokenizer, &parameters);
         let Some(eos_token_id) = eos_token_id else {
-            return Err(VocabularyError::UnableToLocateEosTokenId {
+            return Err(Error::UnableToLocateEosTokenId {
                 model: model.to_string(),
             });
         };
@@ -106,9 +106,9 @@ impl Vocabulary {
 }
 
 impl TryFrom<(&mut Tokenizer, u32)> for Vocabulary {
-    type Error = VocabularyError;
+    type Error = Error;
 
-    fn try_from(value: (&mut Tokenizer, u32)) -> Result<Vocabulary, VocabularyError> {
+    fn try_from(value: (&mut Tokenizer, u32)) -> Result<Self> {
         let (tokenizer, eos_token_id) = value;
 
         let mut vocabulary = Vocabulary::new(Some(eos_token_id));
@@ -313,12 +313,7 @@ mod tests {
 
         assert!(vocabulary.is_err());
         if let Err(e) = vocabulary {
-            assert_eq!(
-                e,
-                VocabularyError::TokenProcessorError(
-                    crate::TokenProcessorError::UnsupportedTokenizer
-                )
-            )
+            assert_eq!(e, Error::UnsupportedByTokenProcessor)
         }
     }
 
@@ -328,9 +323,8 @@ mod tests {
         let vocabulary = Vocabulary::from_pretrained(model, None);
 
         assert!(vocabulary.is_err());
-        if let Err(VocabularyError::UnableToCreateTokenizer { model, source }) = vocabulary {
+        if let Err(Error::UnableToCreateTokenizer { model }) = vocabulary {
             assert_eq!(model, model.to_string());
-            assert_eq!(source.to_string(), "Tokenizer error".to_string());
         }
     }
 
