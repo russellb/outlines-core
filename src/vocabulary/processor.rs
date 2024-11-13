@@ -93,15 +93,6 @@ pub(crate) enum TokenProcessorLevel {
     ByteFallback(Mods),
 }
 
-impl std::fmt::Display for TokenProcessorLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Byte => write!(f, "Byte Level"),
-            Self::ByteFallback(mods) => write!(f, "Byte Fallback Level with mods: {:?}", mods),
-        }
-    }
-}
-
 /// Modifications to be applied by `TokenProcessor`of `ByteFallback` level.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Mods {
@@ -223,6 +214,7 @@ impl TokenProcessor {
 
     /// Since all fields of HF's `Replace` are private with no getters, it needs to be unpacked
     /// into local `ReplaceDecoder` structure.
+    #[cfg(not(tarpaulin_include))]
     fn unpack_decoder(decoder: &Replace) -> Result<ReplaceDecoder> {
         match serde_json::to_value(decoder) {
             Err(_) => Err(Error::DecoderUnpackingFailed),
@@ -350,6 +342,61 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert_eq!(e, Error::ByteFallbackProcessorFailed)
+        }
+    }
+
+    #[test]
+    fn only_get_spacechar_replacement() {
+        let one_char = "_".to_string();
+        let pattern = ReplacePattern::String(one_char);
+        let not_spacechar = "-".to_string();
+        let decoder = ReplaceDecoder {
+            content: not_spacechar,
+            pattern,
+        };
+        assert!(decoder.space_replacement().is_none());
+    }
+
+    #[test]
+    fn only_one_pattern_char_for_spacechar_replacement() {
+        let two_chars = "_*".to_string();
+        let pattern = ReplacePattern::String(two_chars);
+        let spacechar = " ".to_string();
+        let decoder = ReplaceDecoder {
+            content: spacechar,
+            pattern,
+        };
+        assert!(decoder.space_replacement().is_none());
+    }
+
+    #[test]
+    fn tokenizer_without_decoders_is_unsupported() {
+        use tokenizers::models::bpe::BPE;
+
+        let tokenizer = Tokenizer::new(BPE::default());
+        let result = TokenProcessor::new(&tokenizer);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(e, Error::UnsupportedByTokenProcessor)
+        }
+    }
+
+    #[test]
+    fn tokenizer_without_supported_decoders_in_sequence_is_unsupported() {
+        use tokenizers::decoders::sequence::Sequence;
+        use tokenizers::decoders::wordpiece::WordPiece;
+        use tokenizers::models::bpe::BPE;
+
+        let mut tokenizer = Tokenizer::new(BPE::default());
+        let decoder = WordPiece::default();
+        let sequence = Sequence::new(vec![DecoderWrapper::WordPiece(decoder)]);
+        let decoder_sequence = DecoderWrapper::Sequence(sequence);
+        tokenizer.with_decoder(Some(decoder_sequence));
+
+        let result = TokenProcessor::new(&tokenizer);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(e, Error::UnsupportedByTokenProcessor)
         }
     }
 }

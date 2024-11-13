@@ -244,12 +244,40 @@ mod tests {
     }
 
     #[test]
+    fn new_empty_vocabulary() {
+        let vocabulary = Vocabulary::new(None);
+        assert!(vocabulary.eos_token_id.is_none());
+        assert!(vocabulary.tokens.is_empty());
+    }
+
+    #[test]
+    fn new_empty_vocabulary_from_hashmap() {
+        let map = HashMap::new();
+        let vocabulary = Vocabulary::from(map);
+        assert!(vocabulary.eos_token_id.is_none());
+        assert!(vocabulary.tokens.is_empty());
+    }
+
+    #[test]
+    fn new_vocabulary_from_iterator() {
+        let token: Token = "abc".to_string();
+        let id: Vec<TokenId> = vec![1];
+        let it = vec![(token, id)];
+        let vocabulary = Vocabulary::from_iter(it);
+        assert!(vocabulary.eos_token_id.is_none());
+        assert!(!vocabulary.tokens.is_empty());
+    }
+
+    #[test]
     fn pretrained_from_gpt2() {
         let model = "openai-community/gpt2";
         let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
         let vocabulary = Vocabulary::from_pretrained(model, None).expect("Vocabulary failed");
 
-        let v_eos = vocabulary.eos_token_id.expect("No eos token in vocabulary");
+        let v_eos = vocabulary.eos_token_id;
+        assert!(v_eos.is_some());
+
+        let v_eos = v_eos.unwrap();
         assert_eq!(v_eos, 50256);
         assert_eq!(
             tokenizer.id_to_token(v_eos).expect("Token not found"),
@@ -278,7 +306,10 @@ mod tests {
         let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
         let vocabulary = Vocabulary::from_pretrained(model, None).expect("Vocabulary failed");
 
-        let v_eos = vocabulary.eos_token_id.expect("No eos token in vocabulary");
+        let v_eos = vocabulary.eos_token_id;
+        assert!(v_eos.is_some());
+
+        let v_eos = v_eos.unwrap();
         assert_eq!(v_eos, 2);
         assert_eq!(
             tokenizer.id_to_token(v_eos).expect("Token not found"),
@@ -357,5 +388,19 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn other_normalizers_being_kept() {
+        use tokenizers::normalizers::BertNormalizer;
+
+        let model = "hf-internal-testing/llama-tokenizer";
+        let normalizer = NormalizerWrapper::BertNormalizer(BertNormalizer::default());
+        let mut tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
+        tokenizer.with_normalizer(Some(normalizer));
+
+        Vocabulary::filter_prepend_normalizers(&mut tokenizer);
+
+        assert!(tokenizer.get_normalizer().is_some());
     }
 }

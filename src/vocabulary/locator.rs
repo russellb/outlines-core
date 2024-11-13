@@ -138,6 +138,9 @@ impl EosTokenLocation {
 
         let params = parameters.clone().unwrap_or_default();
 
+        // Validation checks are coming as a literal adaptation logic from HF.
+        // In this case project is a model name, which if invalid expected to fail much earlier.
+        // So it seems a bit redundant to validate it this way, but no harm in doing so too.
         Self::validate(project)?;
         Self::validate(&params.revision)?;
 
@@ -212,5 +215,11 @@ mod tests {
         };
         let token_id = bad_file.lookup(model, &tokenizer, &None);
         assert!(token_id.is_none());
+    }
+
+    #[test]
+    fn validate_config_input() {
+        let input = "bad_model_name*";
+        assert!(EosTokenLocation::validate(input).is_err());
     }
 }
