@@ -1,8 +1,9 @@
 # Optional target to test/benchmark.
 TARGET ?=
+TARPAULIN_INSTALLED := $(shell command -v cargo-tarpaulin > /dev/null && echo 1 || echo 0)
 
 .ONESHELL:
-.PHONY: venv setup install install-release build-extension-debug build-extension-release watch-extension watch-extension-release pcc test test-rust test-python bench pybench doc dist clean check-clean-git
+.PHONY: venv setup install install-release build-extension-debug build-extension-release watch-extension watch-extension-release pcc test test-rust test-python bench pybench doc dist clean check-clean-git check-tarpaulin test-rust-cov
 .SILENT:
 
 # Create a fresh virtual environment with the latest pip.
@@ -58,6 +59,26 @@ test-python: build-extension-debug
 	pytest -svv tests -k "$(TARGET)" \
 		--cov=outlines_core \
 		--cov-report=term-missing:skip-covered
+
+# Check if tarpaulin needs to be installed first.
+check-tarpaulin:
+ifeq ($(TARPAULIN_INSTALLED), 0)
+	@echo "cargo-tarpaulin is not found, installing..."
+	cargo install cargo-tarpaulin
+else
+	@echo "cargo-tarpaulin is already installed"
+endif
+
+# Run rust tests with coverage report.
+test-rust-cov: check-tarpaulin
+	RUSTFLAGS="-C instrument-coverage" cargo tarpaulin \
+	--out=Lcov \
+	--output-dir=rust-coverage \
+	--engine=llvm \
+	--exclude-files=src/python_bindings/* \
+	--no-dead-code \
+	--workspace \
+	--verbose
 
 # Run rust benchmarks.
 bench:

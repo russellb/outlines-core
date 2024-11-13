@@ -11,7 +11,7 @@ benchmarks/results
 # Remove doc build folders
 .cache/
 build/
-
+rust-coverage/
 target/
 *.so
 *.pyd
