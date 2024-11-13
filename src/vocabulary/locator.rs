@@ -89,19 +89,15 @@ struct EosTokenLocation {
     location: EosTokenField,
 }
 
-pub(crate) struct EosTokenLocator;
-
-impl EosTokenLocator {
-    /// Locates eos token id by searching in defined common locations.
-    pub(crate) fn locate(
-        model: &str,
-        tokenizer: &Tokenizer,
-        parameters: &Option<FromPretrainedParameters>,
-    ) -> Option<TokenId> {
-        COMMON_LOCATIONS
-            .iter()
-            .find_map(|location| location.lookup(model, tokenizer, parameters))
-    }
+/// Locates eos token id by searching in defined common locations.
+pub(crate) fn locate_eos_token_id(
+    model: &str,
+    tokenizer: &Tokenizer,
+    parameters: &Option<FromPretrainedParameters>,
+) -> Option<TokenId> {
+    COMMON_LOCATIONS
+        .iter()
+        .find_map(|location| location.lookup(model, tokenizer, parameters))
 }
 
 impl EosTokenLocation {
@@ -147,7 +143,7 @@ impl EosTokenLocation {
 
         let repo = Repo::with_revision(project.to_string(), RepoType::Model, params.revision);
         let api = ApiBuilder::new()
-            .with_token(params.auth_token)
+            .with_token(params.token)
             .build()?
             .repo(repo);
 
@@ -188,7 +184,7 @@ mod tests {
         ] {
             let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
             let located =
-                EosTokenLocator::locate(model, &tokenizer, &None).expect("Token id is not located");
+                locate_eos_token_id(model, &tokenizer, &None).expect("Token id is not located");
 
             assert_eq!(located, *expected_token_id);
             assert_eq!(

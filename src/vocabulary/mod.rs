@@ -6,7 +6,6 @@ use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 use crate::prelude::*;
 use crate::{Error, Result};
 
-use locator::EosTokenLocator;
 use processor::TokenProcessor;
 
 mod locator;
@@ -29,7 +28,7 @@ mod processor;
 pub struct Vocabulary {
     // TODO: Option is temp for back compatibility
     eos_token_id: Option<TokenId>,
-    map: HashMap<Token, Vec<TokenId>>,
+    tokens: HashMap<Token, Vec<TokenId>>,
 }
 
 impl Vocabulary {
@@ -37,7 +36,7 @@ impl Vocabulary {
     pub fn new(eos_token_id: Option<TokenId>) -> Self {
         Self {
             eos_token_id,
-            map: HashMap::new(),
+            tokens: HashMap::new(),
         }
     }
 
@@ -54,19 +53,19 @@ impl Vocabulary {
             })?;
         Self::filter_prepend_normalizers(&mut tokenizer);
 
-        let eos_token_id = EosTokenLocator::locate(model, &tokenizer, &parameters);
+        let eos_token_id = locator::locate_eos_token_id(model, &tokenizer, &parameters);
         let Some(eos_token_id) = eos_token_id else {
             return Err(Error::UnableToLocateEosTokenId {
                 model: model.to_string(),
             });
         };
 
-        Vocabulary::try_from((&mut tokenizer, eos_token_id))
+        Vocabulary::try_from((tokenizer, eos_token_id))
     }
 
     /// Per provided token returns vector of `TokenId`s if available in the vocabulary.
     pub fn token_to_ids(&self, token: &str) -> Option<&Vec<TokenId>> {
-        self.map.get(token)
+        self.tokens.get(token)
     }
 
     /// Gets the identifier of the special end of the sentence token.
@@ -105,10 +104,10 @@ impl Vocabulary {
     }
 }
 
-impl TryFrom<(&mut Tokenizer, u32)> for Vocabulary {
+impl TryFrom<(Tokenizer, u32)> for Vocabulary {
     type Error = Error;
 
-    fn try_from(value: (&mut Tokenizer, u32)) -> Result<Self> {
+    fn try_from(value: (Tokenizer, u32)) -> Result<Self> {
         let (tokenizer, eos_token_id) = value;
 
         let mut vocabulary = Vocabulary::new(Some(eos_token_id));
@@ -118,7 +117,7 @@ impl TryFrom<(&mut Tokenizer, u32)> for Vocabulary {
             }
         }
 
-        let processor = TokenProcessor::new(tokenizer)?;
+        let processor = TokenProcessor::new(&tokenizer)?;
         for (token, token_id) in tokenizer.get_vocab(false) {
             let token_bytes = processor.process(token)?;
             // TODO: lossy is temp:
@@ -154,7 +153,7 @@ impl Vocabulary {
     pub fn insert_in_place(&mut self, token: impl Into<Token>, id: TokenId) {
         // TODO: return error if eos token id is inserted
         let token = token.into();
-        self.map.entry(token).or_default().push(id);
+        self.tokens.entry(token).or_default().push(id);
     }
 
     /// Extends the vocabulary with tokens and their identifiers, in place.
@@ -164,7 +163,7 @@ impl Vocabulary {
     ) {
         for (token, ids) in tokens_and_ids.into_iter() {
             let token = token.into();
-            self.map.entry(token).or_default().extend(ids);
+            self.tokens.entry(token).or_default().extend(ids);
         }
     }
 }
@@ -173,7 +172,7 @@ impl std::ops::Deref for Vocabulary {
     type Target = HashMap<Token, Vec<TokenId>>;
 
     fn deref(&self) -> &HashMap<Token, Vec<TokenId>> {
-        &self.map
+        &self.tokens
     }
 }
 
@@ -191,10 +190,10 @@ impl std::fmt::Display for Vocabulary {
 }
 
 impl From<HashMap<Token, Vec<TokenId>>> for Vocabulary {
-    fn from(map: HashMap<Token, Vec<TokenId>>) -> Vocabulary {
+    fn from(tokens: HashMap<Token, Vec<TokenId>>) -> Vocabulary {
         Vocabulary {
             eos_token_id: None,
-            map,
+            tokens,
         }
     }
 }
