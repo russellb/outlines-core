@@ -89,15 +89,28 @@ struct EosTokenLocation {
     location: EosTokenField,
 }
 
-/// Locates eos token id by searching in defined common locations.
-pub(crate) fn locate_eos_token_id(
-    model: &str,
-    tokenizer: &Tokenizer,
-    parameters: &Option<FromPretrainedParameters>,
-) -> Option<TokenId> {
-    COMMON_LOCATIONS
-        .iter()
-        .find_map(|location| location.lookup(model, tokenizer, parameters))
+/// Locates eos token id.
+pub(crate) trait Locator {
+    fn locate_eos_token_id(
+        model: &str,
+        tokenizer: &Tokenizer,
+        parameters: &Option<FromPretrainedParameters>,
+    ) -> Option<TokenId>;
+}
+
+/// Locates eos token id by searching in defined common locations in hugging face.
+pub(crate) struct HFLocator;
+
+impl Locator for HFLocator {
+    fn locate_eos_token_id(
+        model: &str,
+        tokenizer: &Tokenizer,
+        parameters: &Option<FromPretrainedParameters>,
+    ) -> Option<TokenId> {
+        COMMON_LOCATIONS
+            .iter()
+            .find_map(|location| location.lookup(model, tokenizer, parameters))
+    }
 }
 
 impl EosTokenLocation {
@@ -186,8 +199,8 @@ mod tests {
             ("hf-internal-testing/llama-tokenizer", 2, "</s>"),
         ] {
             let tokenizer = Tokenizer::from_pretrained(model, None).expect("Tokenizer failed");
-            let located =
-                locate_eos_token_id(model, &tokenizer, &None).expect("Token id is not located");
+            let located = HFLocator::locate_eos_token_id(model, &tokenizer, &None)
+                .expect("Token id is not located");
 
             assert_eq!(located, *expected_token_id);
             assert_eq!(

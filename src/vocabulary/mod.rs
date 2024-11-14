@@ -6,6 +6,7 @@ use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 use crate::prelude::*;
 use crate::{Error, Result};
 
+use locator::{HFLocator, Locator};
 use processor::TokenProcessor;
 
 mod locator;
@@ -45,6 +46,15 @@ impl Vocabulary {
         model: &str,
         parameters: Option<FromPretrainedParameters>,
     ) -> Result<Self> {
+        Self::from_pretrained_with_locator::<HFLocator>(model, parameters)
+    }
+
+    #[doc(hidden)]
+    #[inline(always)]
+    fn from_pretrained_with_locator<L: Locator>(
+        model: &str,
+        parameters: Option<FromPretrainedParameters>,
+    ) -> Result<Self> {
         let mut tokenizer =
             Tokenizer::from_pretrained(model, parameters.clone()).map_err(|_| {
                 Error::UnableToCreateTokenizer {
@@ -53,7 +63,7 @@ impl Vocabulary {
             })?;
         Self::filter_prepend_normalizers(&mut tokenizer);
 
-        let eos_token_id = locator::locate_eos_token_id(model, &tokenizer, &parameters);
+        let eos_token_id = L::locate_eos_token_id(model, &tokenizer, &parameters);
         let Some(eos_token_id) = eos_token_id else {
             return Err(Error::UnableToLocateEosTokenId {
                 model: model.to_string(),
@@ -354,6 +364,28 @@ mod tests {
 
         assert!(vocabulary.is_err());
         if let Err(Error::UnableToCreateTokenizer { model }) = vocabulary {
+            assert_eq!(model, model.to_string());
+        }
+    }
+
+    struct NoneLocator;
+    impl Locator for NoneLocator {
+        fn locate_eos_token_id(
+            _model: &str,
+            _tokenizer: &Tokenizer,
+            _parameters: &Option<FromPretrainedParameters>,
+        ) -> Option<TokenId> {
+            None
+        }
+    }
+
+    #[test]
+    fn unable_to_locate_eos_token_id_error() {
+        let model = "hf-internal-testing/tiny-random-XLMRobertaXLForCausalLM";
+        let vocabulary = Vocabulary::from_pretrained_with_locator::<NoneLocator>(model, None);
+
+        assert!(vocabulary.is_err());
+        if let Err(Error::UnableToLocateEosTokenId { model }) = vocabulary {
             assert_eq!(model, model.to_string());
         }
     }
