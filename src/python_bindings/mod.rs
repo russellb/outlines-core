@@ -5,14 +5,16 @@ use crate::regex::get_token_transition_keys;
 use crate::regex::get_vocabulary_transition_keys;
 use crate::regex::state_scan_tokens;
 use crate::regex::walk_fsm;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use pyo3::wrap_pyfunction;
+use pyo3::types::{PyBytes, PyDict};
+use pyo3::{wrap_pyfunction, Python};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-#[pyclass(name = "FSMInfo")]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[pyclass(module = "outlines_core.fsm.outlines_core_rs", name = "FSMInfo")]
 pub struct PyFSMInfo {
     #[pyo3(get)]
     initial: State,
@@ -39,8 +41,8 @@ impl From<FSMInfo> for PyFSMInfo {
 }
 
 // FIXME: could be costly, confirm if FSMInfo will actually be part of the interface
-impl From<&PyFSMInfo> for FSMInfo {
-    fn from(fsm_info: &PyFSMInfo) -> Self {
+impl From<PyFSMInfo> for FSMInfo {
+    fn from(fsm_info: PyFSMInfo) -> Self {
         FSMInfo {
             initial: fsm_info.initial,
             finals: fsm_info.finals.clone(),
@@ -70,43 +72,132 @@ impl PyFSMInfo {
         )
         .into()
     }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        let data = serde_json::to_string(&self)
+            .map_err(|e| PyException::new_err(format!("Failed to pickle FSMInfo: {}", e)))?;
+        Ok(PyBytes::new_bound(py, data.as_bytes()).to_object(py))
+    }
+
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        match state.extract::<&[u8]>(py) {
+            Ok(s) => {
+                *self = serde_json::from_slice(s).map_err(|e| {
+                    PyException::new_err(format!("Failed to unpickle FSMInfo: {}", e))
+                })?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn __getnewargs__(
+        &self,
+    ) -> PyResult<(
+        State,
+        HashSet<State>,
+        HashMap<(State, TransitionKey), State>,
+        TransitionKey,
+        HashMap<String, TransitionKey>,
+    )> {
+        Ok((
+            self.initial,
+            self.finals.clone(),
+            self.transitions.clone(),
+            self.alphabet_anything_value,
+            self.alphabet_symbol_mapping.clone(),
+        ))
+    }
 }
 
-#[pyclass(name = "Index")]
-pub struct PyIndex(Index);
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[pyclass(module = "outlines_core.fsm.outlines_core_rs", name = "Index")]
+pub struct PyIndex {
+    #[pyo3(get)]
+    fsm_info: PyFSMInfo,
+    #[pyo3(get)]
+    vocabulary: PyVocabulary,
+    #[pyo3(get)]
+    frozen_tokens: HashSet<String>,
+    eos_token_id: u32,
+    inner: Option<Index>,
+}
 
 #[pymethods]
 impl PyIndex {
     #[new]
     fn new(
-        fsm_info: &PyFSMInfo,
-        vocabulary: &PyVocabulary,
+        fsm_info: PyFSMInfo,
+        vocabulary: PyVocabulary,
         eos_token_id: u32,
         frozen_tokens: HashSet<String>,
-    ) -> PyResult<Self> {
-        Index::new(&fsm_info.into(), &vocabulary.0, eos_token_id, frozen_tokens)
-            .map(PyIndex)
-            .map_err(Into::into)
+    ) -> Self {
+        Self {
+            fsm_info,
+            vocabulary,
+            eos_token_id,
+            frozen_tokens,
+            inner: None,
+        }
+    }
+
+    fn build(&mut self) -> PyResult<()> {
+        let fsm_info: FSMInfo = self.fsm_info.clone().into();
+        let index = Index::new(
+            &fsm_info, &self.vocabulary.0, self.eos_token_id, self.frozen_tokens.clone()
+        );
+        self.inner = Some(index?);
+        Ok(())
     }
 
     fn get_allowed_tokens(&self, state: u32) -> Option<Vec<u32>> {
-        self.0.allowed_tokens(state)
+        match &self.inner {
+            Some(i) => i.allowed_tokens(state),
+            None => None,
+        }
     }
 
-    fn get_next_state(&self, state: u32, token_id: u32) -> Option<u32> {
-        self.0.next_state(state, token_id)
+ // fn get_next_state(&self, state: u32, token_id: u32) -> Option<u32> {
+ //     self.0.next_state(state, token_id)
+ // }
+
+ // fn is_final_state(&self, state: u32) -> bool {
+ //     self.0.is_final(state)
+ // }
+
+ // fn get_transitions(&self) -> HashMap<u32, HashMap<u32, u32>> {
+ //     self.0.transitions().clone()
+ // }
+
+ // fn get_initial_state(&self) -> u32 {
+ //     self.0.initial()
+ // }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        let data = serde_json::to_string(&self)
+            .map_err(|e| PyException::new_err(format!("Failed to pickle Index: {}", e)))?;
+        Ok(PyBytes::new_bound(py, data.as_bytes()).to_object(py))
     }
 
-    fn is_final_state(&self, state: u32) -> bool {
-        self.0.is_final(state)
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        match state.extract::<&[u8]>(py) {
+            Ok(s) => {
+                *self = serde_json::from_slice(s).map_err(|e| {
+                    PyException::new_err(format!("Failed to unpickle Index: {}", e))
+                })?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 
-    fn get_transitions(&self) -> HashMap<u32, HashMap<u32, u32>> {
-        self.0.transitions().clone()
-    }
-
-    fn get_initial_state(&self) -> u32 {
-        self.0.initial()
+    fn __getnewargs__(&self) -> PyResult<(PyFSMInfo, PyVocabulary, u32, HashSet<String>)> {
+        Ok((
+            PyFSMInfo::default(),
+            PyVocabulary::default(),
+            0,
+            HashSet::default(),
+        ))
     }
 }
 
@@ -256,7 +347,8 @@ pub fn create_fsm_index_end_to_end_py<'py>(
     Ok(states_to_token_subsets)
 }
 
-#[pyclass(name = "Vocabulary")]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[pyclass(module = "outlines_core.fsm.outlines_core_rs", name = "Vocabulary")]
 pub struct PyVocabulary(Vocabulary);
 
 #[pymethods]
@@ -266,12 +358,40 @@ impl PyVocabulary {
         PyVocabulary(Vocabulary::from(map))
     }
 
+    #[new]
+    #[pyo3(signature = (eos_token_id=None))]
+    fn new(eos_token_id: Option<u32>) -> Self {
+        PyVocabulary(Vocabulary::new(eos_token_id))
+    }
+
     fn __repr__(&self) -> String {
         format!("{:#?}", self.0)
     }
 
     fn __str__(&self) -> String {
         format!("{}", self.0)
+    }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        let data = serde_json::to_string(&self)
+            .map_err(|e| PyException::new_err(format!("Failed to pickle Vocabulary: {}", e)))?;
+        Ok(PyBytes::new_bound(py, data.as_bytes()).to_object(py))
+    }
+
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        match state.extract::<&[u8]>(py) {
+            Ok(s) => {
+                *self = serde_json::from_slice(s).map_err(|e| {
+                    PyException::new_err(format!("Failed to unpickle Vocabulary: {}", e))
+                })?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn __getnewargs__(&self) -> PyResult<(Option<u32>,)> {
+        Ok((None,))
     }
 }
 

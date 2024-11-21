@@ -3,9 +3,10 @@ use crate::prelude::{State, TransitionKey};
 use crate::regex::{get_vocabulary_transition_keys, state_scan_tokens};
 use crate::vocabulary::Vocabulary;
 use crate::{Error, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct FSMInfo {
     pub(crate) initial: State,
     pub(crate) finals: HashSet<State>,
@@ -32,7 +33,7 @@ impl FSMInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Index {
     initial: u32,
     finals: HashSet<u32>,

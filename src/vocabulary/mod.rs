@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use tokenizers::normalizers::Sequence;
 use tokenizers::{FromPretrainedParameters, NormalizerWrapper, Tokenizer};
 
@@ -25,7 +26,8 @@ mod processor;
 ///     .insert("2", 2)
 ///     .insert("0", 3);
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
 pub struct Vocabulary {
     // TODO: Option is temp for back compatibility
     eos_token_id: Option<TokenId>,
