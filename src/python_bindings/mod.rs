@@ -79,14 +79,16 @@ pub struct PyIndex(Index);
 impl PyIndex {
     #[new]
     fn new(
+        py: Python,
         fsm_info: &PyFSMInfo,
         vocabulary: &PyVocabulary,
         eos_token_id: u32,
         frozen_tokens: HashSet<String>,
     ) -> PyResult<Self> {
-        Index::new(&fsm_info.into(), &vocabulary.0, eos_token_id, frozen_tokens)
-            .map(PyIndex)
-            .map_err(Into::into)
+        println!("Creating a new PyIndex instance");
+        return py.allow_threads(|| {
+            Index::new(&fsm_info.into(), &vocabulary.0, eos_token_id, frozen_tokens).map(PyIndex).map_err(Into::into)
+        });
     }
 
     fn get_allowed_tokens(&self, state: u32) -> Option<Vec<u32>> {
